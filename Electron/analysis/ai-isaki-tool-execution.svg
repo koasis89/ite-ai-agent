@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="880" viewBox="0 0 1400 880">
+  <defs>
+    <style>
+      .title { font: 700 28px 'Segoe UI', sans-serif; fill: #17324d; }
+      .subtitle { font: 600 18px 'Segoe UI', sans-serif; fill: #36556f; }
+      .header { font: 700 16px 'Segoe UI', sans-serif; fill: #ffffff; }
+      .label { font: 600 15px 'Segoe UI', sans-serif; fill: #18344d; }
+      .body { font: 14px 'Segoe UI', sans-serif; fill: #27475f; }
+      .small { font: 12px 'Segoe UI', sans-serif; fill: #4c697f; }
+      .laneA { fill: #edf7ef; }
+      .laneB { fill: #eef5fb; }
+      .laneC { fill: #fff8ec; }
+      .laneD { fill: #f8f2ff; }
+      .headA { fill: #4f9d69; }
+      .headB { fill: #4e7aa7; }
+      .headC { fill: #d1902f; }
+      .headD { fill: #7a68c7; }
+      .step { fill: #ffffff; stroke: #7890a3; stroke-width: 1.8; rx: 16; }
+      .arrow { stroke: #4c697f; stroke-width: 2.2; fill: none; marker-end: url(#arrowHead); }
+      .formula { font: 600 18px 'Segoe UI', sans-serif; fill: #17324d; }
+    </style>
+    <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4c697f" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="880" fill="#ffffff" />
+  <text x="44" y="50" class="title">MCP 도구 선택 및 실행 알고리즘</text>
+  <text x="44" y="82" class="subtitle">의도 스코어링, 슬롯 필링, 프로토콜 호출, 샌드박스 압축, 복구 루프</text>
+
+  <rect x="40" y="130" width="1320" height="120" class="laneA" />
+  <rect x="40" y="130" width="180" height="120" class="headA" />
+  <text x="84" y="196" class="header">사용자 질의</text>
+
+  <rect x="40" y="250" width="1320" height="170" class="laneB" />
+  <rect x="40" y="250" width="180" height="170" class="headB" />
+  <text x="64" y="340" class="header">Host 로직</text>
+
+  <rect x="40" y="420" width="1320" height="170" class="laneC" />
+  <rect x="40" y="420" width="180" height="170" class="headC" />
+  <text x="70" y="510" class="header">MCP 런타임</text>
+
+  <rect x="40" y="590" width="1320" height="210" class="laneD" />
+  <rect x="40" y="590" width="180" height="210" class="headD" />
+  <text x="83" y="702" class="header">도메인 서버</text>
+
+  <rect x="260" y="154" width="270" height="70" class="step" />
+  <text x="286" y="184" class="label">자연어 질문</text>
+  <text x="286" y="206" class="small">예시: 안동 풍산 사과밭 냉해 위험 있어?</text>
+
+  <rect x="260" y="280" width="220" height="88" class="step" />
+  <text x="288" y="312" class="label">의도 분류</text>
+  <text x="288" y="334" class="small">재해 경보 질의로 분류</text>
+  <text x="288" y="354" class="small">긴급도와 안전 플래그 반영</text>
+
+  <rect x="520" y="280" width="220" height="88" class="step" />
+  <text x="548" y="312" class="label">엔티티 추출</text>
+  <text x="548" y="334" class="small">작목, 지역, 시점, 재해 추출</text>
+  <text x="548" y="354" class="small">현장 표현 정규화</text>
+
+  <rect x="780" y="280" width="240" height="88" class="step" />
+  <text x="808" y="312" class="label">세션 컨텍스트 병합</text>
+  <text x="808" y="334" class="small">메모리에서 누락 슬롯 보강</text>
+  <text x="808" y="354" class="small">값의 출처 정보 유지</text>
+
+  <rect x="1060" y="280" width="240" height="88" class="step" />
+  <text x="1088" y="312" class="label">도구 스코어링</text>
+  <text x="1088" y="334" class="small">도구와 체인 후보 순위화</text>
+  <text x="1088" y="354" class="small">누락·위험 패널티 반영</text>
+
+  <rect x="270" y="450" width="260" height="100" class="step" />
+  <text x="300" y="484" class="label">initialize 및 카탈로그 동기화</text>
+  <text x="300" y="506" class="small">Capabilities, tools/list, resources/list, prompts/list</text>
+  <text x="300" y="526" class="small">세션 및 서버 버전 기준 캐시</text>
+
+  <rect x="580" y="450" width="250" height="100" class="step" />
+  <text x="612" y="484" class="label">tools/call 호출 분기</text>
+  <text x="612" y="506" class="small">검증된 평탄 인자 전달</text>
+  <text x="612" y="526" class="small">장기 실행 시 progress 토큰 부착</text>
+
+  <rect x="880" y="450" width="200" height="100" class="step" />
+  <text x="914" y="484" class="label">resources/read</text>
+  <text x="914" y="506" class="small">선택적 매뉴얼·보고서 조회</text>
+  <text x="914" y="526" class="small">근거 보강에 사용</text>
+
+  <rect x="1110" y="450" width="190" height="100" class="step" />
+  <text x="1142" y="484" class="label">prompts/get</text>
+  <text x="1142" y="506" class="small">행동 지침 템플릿 적용</text>
+  <text x="1142" y="526" class="small">농가 친화 표현으로 정리</text>
+
+  <rect x="270" y="625" width="220" height="120" class="step" />
+  <text x="298" y="660" class="label">도메인 검증</text>
+  <text x="298" y="682" class="small">법적 범위, 등록 여부, 단위 검증</text>
+  <text x="298" y="702" class="small">필요 시 도메인 오류 코드 반환</text>
+
+  <rect x="530" y="625" width="220" height="120" class="step" />
+  <text x="562" y="660" class="label">외부 API 또는 계산기</text>
+  <text x="562" y="682" class="small">공공 데이터 소스 호출</text>
+  <text x="562" y="702" class="small">또는 격리 계산 실행</text>
+
+  <rect x="790" y="625" width="230" height="120" class="step" />
+  <text x="820" y="660" class="label">압축 파이프라인</text>
+  <text x="820" y="682" class="small">필터링, 정렬, 요약, 신뢰도 부여</text>
+  <text x="820" y="702" class="small">action_guideline 과 caution 생성</text>
+
+  <rect x="1060" y="625" width="240" height="120" class="step" />
+  <text x="1090" y="660" class="label">복구 및 응답</text>
+  <text x="1090" y="682" class="small">상위 지역 또는 캐시 보고서로 fallback</text>
+  <text x="1090" y="702" class="small">필수 슬롯이 없으면 후속 질문 생성</text>
+
+  <path d="M530 189 L590 189" class="arrow" />
+  <path d="M480 324 L520 324" class="arrow" />
+  <path d="M740 324 L780 324" class="arrow" />
+  <path d="M1020 324 L1060 324" class="arrow" />
+  <path d="M1180 368 L1180 450" class="arrow" />
+  <path d="M400 368 L400 450" class="arrow" />
+  <path d="M705 368 L705 450" class="arrow" />
+  <path d="M980 368 L980 450" class="arrow" />
+  <path d="M675 550 L675 625" class="arrow" />
+  <path d="M490 685 L530 685" class="arrow" />
+  <path d="M750 685 L790 685" class="arrow" />
+  <path d="M1020 685 L1060 685" class="arrow" />
+
+  <text x="250" y="792" class="formula">Score(tool, query) = wi·Sint + we·Sent + wc·Sctx - wm·Pmissing - wr·Prisk</text>
+  <text x="250" y="824" class="small">Sint: 의도 유사도, Sent: 엔티티 충족도, Sctx: 재사용 가능한 컨텍스트, Pmissing: 필수 슬롯 누락, Prisk: 안전 또는 오남용 위험</text>
+</svg>

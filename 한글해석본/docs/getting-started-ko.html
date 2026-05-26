@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>시작하기 - oh-my-codex Docs</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <nav class="container nav" aria-label="주요">
+        <a class="brand" href="./index.html">오마이코덱스</a>
+        <a href="./index.html">홈</a>
+        <a class="active" href="./getting-started.html">시작하기</a>
+        <a href="./agents.html">에이전트(Agent)</a>
+        <a href="./skills.html">스킬(Skill)</a>
+        <a href="./integrations.html">통합</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <h1>시작하기</h1>
+      <p class="muted">처음 사용자를 위한 엔드투엔드 설정.</p>
+
+      <h2>전제조건</h2>
+      <ul>
+        <li>Node.js 20+ 및 npm.</li>
+        <li>OpenAI Codex CLI가 설치 및 인증되었습니다.</li>
+        <li>프로젝트 워크플로를 위한 Git(권장)</li>
+      </ul>
+
+      <h2>설치</h2>
+      <pre><code>npm install -g @openai/codex oh-my-codex
+omx doctor</code></pre>
+      <p>언제<code>oh-my-codex</code>실제로 최신 버전과 부딪히면 이제 전역 npm 설치가 시작하는 대신 명시적인 알림을 인쇄합니다.<code>omx setup</code>자동으로. 준비가 되면 다시 실행하세요.<code>omx setup</code>수동으로 또는 사용<code>omx update</code>npm을 확인한 다음 동일한 설정 새로 고침 경로를 실행하세요. 새로운 OMX 관리<code>gpt-5.5</code>이제 구성을 권장합니다<code>model_context_window = 250000</code>그리고<code>model_auto_compact_token_limit = 200000</code>해당 키가 누락된 경우에만.</p>
+      <p><code>omx doctor</code>설치 형태를 확인합니다. 런타임을 준비된 것으로 처리하기 전에 활성 Codex 프로필이 실제 요청을 수행할 수 있는지도 증명하십시오.</p>
+      <pre><code>codex login status
+omx exec --skip-git-repo-check -C . &quot;Reply with exactly OMX-EXEC-OK&quot;</code></pre>
+
+      <h2>권장 출시</h2>
+      <pre><code>omx --xhigh --madmax   # trusted environments
+omx                    # standard launch</code></pre>
+
+      <h2>첫 번째 실행 연습</h2>
+      <ol>
+        <li>프로젝트 디렉터리를 생성하거나 입력합니다.</li>
+        <li>OMX를 전역적으로 설치하거나 업데이트합니다.</li>
+        <li>설치 또는 실제 OMX 버전 충돌 후 다시 실행<code>omx setup</code>준비가 되면 직접 사용하거나<code>omx update</code>npm이 OMX를 먼저 업데이트하도록 하려는 경우.</li>
+        <li>실행<code>omx doctor</code>, 그런 다음<code>codex login status</code>...을 더한<code>omx exec</code>위의 연기 테스트.</li>
+        <li>다음으로 Codex CLI를 시작하세요.<code>omx</code>.</li>
+        <li>사용<code>$deep-interview "clarify the auth change"</code>의도나 경계가 아직 명확하지 않은 경우.</li>
+        <li>사용<code>$ralplan "approve the auth plan and review tradeoffs"</code>구현 계획을 잠급니다.</li>
+        <li>선택하다<code>$ralph "carry the approved plan to completion"</code>또는<code>$team 3:executor "execute the approved plan in parallel"</code>실행 스타일을 기반으로 합니다.</li>
+      </ol>
+
+      <h2>프롬프트 지침 소스</h2>
+      <p>기본적으로 OMX 레이어 프로젝트 지침(Codex 동작을 확장하고 Codex 핵심 시스템 정책을 대체/우회하지 않음):</p>
+      <pre><code>-c model_instructions_file="&lt;cwd&gt;/AGENTS.md"</code></pre>
+      <p>필요한 경우 동작을 재정의합니다.</p>
+      <pre><code>OMX_BYPASS_DEFAULT_SYSTEM_PROMPT=0 omx
+OMX_MODEL_INSTRUCTIONS_FILE=/path/to/instructions.md omx</code></pre>
+
+      <h2>문제 해결</h2>
+      <table>
+        <thead><tr><th>문제</th><th>확인해야 할 사항</th></tr></thead>
+        <tbody>
+          <tr><td><code>omx</code>명령을 찾을 수 없습니다</td><td>전역 설치를 다시 실행하고 npm 전역 저장소가 PATH에 있는지 확인하세요.</td></tr>
+          <tr><td>프롬프트를 사용할 수 없습니다.</td><td>파일이 있는지 확인하세요.<code>~/.codex/prompts/</code>그리고 다시 실행<code>omx setup</code>.</td></tr>
+          <tr><td>스킬이 로딩되지 않습니다</td><td>확인하세요:<code>~/.codex/skills/*/SKILL.md</code>파일이 설치되었습니다.</td></tr>
+          <tr><td>doctor가 구성 문제를 보고함</td><td>실행<code>omx doctor</code>제안된 수정 사항을 적용합니다.</td></tr>
+          <tr><td>doctor는 통과했지만 실행은 실패합니다.</td><td>실행<code>codex login status</code>그리고<code>omx exec --skip-git-repo-check -C . &quot;Reply with exactly OMX-EXEC-OK&quot;</code>동일한 쉘/프로필에서. 그린닥터는 인증된 모델 실행에 대한 증거가 아닌 설치 증거입니다.</td></tr>
+          <tr><td>사용자 정의 또는 프로필 HOME을 인증할 수 없습니다.</td><td>활성 상태를 확인하세요.<code>~/.codex</code>또는<code>CODEX_HOME</code>. 컨테이너, 프로필 셸 및 서비스 사용자는 일반 사용자 홈과 동일한 인증/구성을 볼 수 없습니다.</td></tr>
+          <tr><td>로컬 프록시 또는 호환 엔드포인트가 401을 반환합니다.</td><td>프록시를 사용하는 경우 활성 상태를 확인하세요.<code>~/.codex/config.toml</code>예상되는 내용이 포함되어 있습니다.<code>openai_base_url</code>. 잘못된 엔드포인트로 전송된 프록시 키는 전달자 인증 누락 또는 잘못된 API 키처럼 보일 수 있습니다.</td></tr>
+          <tr><td><code>omx doctor --team</code>죽은 tmux 팀을 본다</td><td>팀이 의도적으로 포기된 경우 실행<code>omx team shutdown &lt;team-name&gt; --force --confirm-issues</code>, 그 다음에<code>omx cancel</code>, 그 다음에<code>omx doctor --team</code>.</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">더 깊은 운영자 도움이 필요하십니까? 보다<a href="./troubleshooting.md">실행 준비 문제 해결</a>.</p>
+    </main>
+
+    <footer>
+      <div class="container">
+        <span class="muted">더 넓은 맥락이 필요합니까? 프로젝트 README에서 시작하세요.</span>
+      </div>
+    </footer>
+  </body>
+</html>

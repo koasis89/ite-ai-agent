@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>oh-my-codex 문서</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <nav class="container nav" aria-label="주요">
+        <a class="brand" href="./index.html">오마이코덱스</a>
+        <a class="active" href="./index.html">홈</a>
+        <a href="./getting-started.html">시작하기</a>
+        <a href="./agents.html">에이전트(Agent)</a>
+        <a href="./skills.html">스킬(Skill)</a>
+        <a href="./integrations.html">통합</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <span class="badge">GitHub 페이지</span>
+        <h1>오마이코덱스</h1>
+        <p>OpenAI Codex CLI를 위한 다중 에이전트 오케스트레이션.</p>
+        <pre><code>npm install -g oh-my-codex</code></pre>
+        <p>실제 글로벌 버전 범프는 이제 자동 실행 대신 명시적인 알림을 인쇄합니다.<code>omx setup</code>. 준비가 되면 달려가세요<code>omx setup</code>수동으로 또는 사용<code>omx update</code>npm을 확인한 다음 동일한 설정 새로 고침 경로를 실행하세요. 새로운 OMX 관리<code>gpt-5.5</code>구성 추천<code>250000 / 200000</code>해당 키가 누락된 경우에만.</p>
+      </section>
+
+      <section aria-labelledby="whats-new-060">
+        <h2 id="whats-new-060">0.6.0의 새로운 기능</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>혼합 코덱스 + 클로드 팀원</h3>
+            <p>다음을 사용하여 팀 워커 라우팅(Routing)<code>OMX_TEAM_WORKER_CLI_MAP</code>(예를 들어:<code>codex,codex,claude,claude</code>) 그래서 하나의 <code>$team</code> 실행에서는 두 CLI를 모두 사용할 수 있습니다.</p>
+          </article>
+          <article class="card">
+            <h3>클로드 팀 리더가 넛지</h3>
+            <p>작업자 측 Codex 후크를 사용할 수 없는 경우에도 알림이 계속 실행되도록 리더 측 모든 작업자 유휴 폴백을 추가했습니다.</p>
+          </article>
+          <article class="card">
+            <h3>더 안전한 트리거 재시도</h3>
+            <p>이제 팀 트리거 폴백은 더 안전한 명확한 재전송 동작을 통해 준비 프롬프트 및 비활성 작업 확인 뒤에 적응형 재전송을 게이트합니다.</p>
+          </article>
+          <article class="card">
+            <h3>안정성 수정</h3>
+            <p>향상된 작업 청구 부트스트랩, 더욱 엄격한 CLI 맵 검증, 예측 가능<code>auto</code>혼합/Claude 팀을 위한 더 나은 리더 창 타겟팅.</p>
+          </article>
+        </div>
+      </section>
+
+      <h2>핵심 기능</h2>
+      <div class="grid">
+        <article class="card"><h3>에이전트 프롬프트</h3><p>구현, 검토, 설계 및 계획을 위한 전문 역할입니다.</p></article>
+        <article class="card"><h3>스킬</h3><p>자동 조종 장치 및 팀 파이프라인부터 설정, 릴리스, 추적까지 구성 가능한 워크플로입니다.</p></article>
+        <article class="card"><h3>팀 오케스트레이션</h3><p>검증 및 수정 루프가 포함된 단계적 실행 파이프라인.</p></article>
+        <article class="card"><h3>MCP 상태 관리</h3><p>세션 전반에 걸쳐 수명 주기 상태, 메모장 및 프로젝트 메모리가 지속됩니다.</p></article>
+      </div>
+
+      <h2>빠른 시작</h2>
+      <ol>
+        <li><code>npm install -g oh-my-codex</code></li>
+        <li>설치 또는 실제 버전 범프 후 다음을 실행하십시오.<code>omx setup</code>준비가 되면 직접 사용하거나<code>omx update</code>npm이 OMX를 먼저 업데이트하도록 하려는 경우.</li>
+        <li><code>omx doctor</code></li>
+        <li><code>omx --xhigh --madmax</code>(신뢰할 수 있는 환경) 또는<code>omx</code></li>
+      </ol>
+
+      <h2>참조 가이드</h2>
+      <ul>
+        <li><a href="./reference/omx-config-schema-routing.md">.omx-config.json 모델/환경 라우팅 참조</a></li>
+        <li><a href="./pipeline/github-pr-package-identity.md">GitHub/PR/패키지 ID 파이프라인</a></li>
+      </ul>
+
+      <h2>통합 가이드</h2>
+      <p>OpenClaw/알림 게이트웨이 설정 및 언어별 프롬프트 코디네이션(Coordination) 가이드:</p>
+      <p><a href="./integrations.html">전용 통합 페이지 열기</a></p>
+      <ul>
+        <li><a href="./discord-integration.md">Discord 설정: 웹훅 URL과 봇 토큰</a></li>
+        <li><a href="./openclaw-integration.md">영어</a></li>
+        <li><a href="./openclaw-integration.ko.md">한국어</a></li>
+        <li><a href="./openclaw-integration.ja.md">일본어</a></li>
+        <li><a href="./openclaw-integration.zh.md">중국어 간체</a></li>
+        <li><a href="./openclaw-integration.zh-TW.md">중국어 번체</a></li>
+        <li><a href="./openclaw-integration.vi.md">베트남어</a></li>
+        <li><a href="./openclaw-integration.es.md">스페인어</a></li>
+        <li><a href="./openclaw-integration.pt.md">포르투갈어</a></li>
+        <li><a href="./openclaw-integration.ru.md">러시아어</a></li>
+        <li><a href="./openclaw-integration.tr.md">터키어</a></li>
+        <li><a href="./openclaw-integration.de.md">독일어</a></li>
+        <li><a href="./openclaw-integration.fr.md">프랑스어</a></li>
+        <li><a href="./openclaw-integration.it.md">이탈리아 사람</a></li>
+        <li><a href="./openclaw-integration.uk.md">우크라이나어</a></li>
+      </ul>
+
+      <h2>아키텍처</h2>
+      <pre><code>User
+  -> Codex CLI
+     -> AGENTS.md (orchestration brain)
+     -> ~/.codex/prompts/*.md (installable active/internal agent prompt catalog)
+     -> ~/.codex/skills/*/SKILL.md (skill catalog)
+     -> ~/.codex/config.toml (features, notify, MCP)
+     -> .omx/ (runtime state, memory, plans, logs)</code></pre>
+    </main>
+
+    <footer>
+      <div class="container">
+        <span class="muted">GitHub:<a href="https://github.com/Yeachan-Heo/oh-my-codex">허예찬/oh-my-codex</a></span>
+      </div>
+    </footer>
+  </body>
+</html>

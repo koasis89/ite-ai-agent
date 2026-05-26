@@ -1,0 +1,27 @@
+personality = "pragmatic"
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+[mcp_servers.iwon-mcp]
+command = "node"
+args = ["tools/mcp-server/build/index.js"]
+
+[features]
+multi_agent = true
+
+[windows]
+sandbox = "elevated"
+
+[projects.'C:\']
+trust_level = "trusted"
+
+[projects.'c:\workspace\not-clawd-code']
+trust_level = "trusted"
+
+[projects.'c:\workspace\isaki']
+trust_level = "trusted"
+
+[projects.'c:\workspace\isaki\oh-my-codex-js']
+trust_level = "trusted"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 1
