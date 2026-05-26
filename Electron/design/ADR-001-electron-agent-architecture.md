@@ -222,6 +222,10 @@ flowchart TB
 
 ## 디렉토리 및 소스 구조 (Electron 앱 src/)
 
+> **팀 컨벤션:** 새 티켓 구현 시 `src/` 하위에 파일이 추가·이동·삭제될 경우,  
+> 반드시 이 트리도 동시에 업데이트한다 (PR 체크리스트 항목).  
+> 특히 EL-223(UI 통합 패널) 등 미확정 파일이 확정되면 해당 경로를 즉시 반영한다.
+
 ```
 src/
 ├── main/                           # Electron Main Process
@@ -229,7 +233,7 @@ src/
 │   │   └── env-checker.ts          # EL-201: 환경 진단
 │   ├── cli/
 │   │   ├── cli-wrapper.ts          # EL-202: spawn 비차단 래퍼
-│   │   ├── envelope-parser.ts      # EL-203: Zod 봉투 파서
+│   │   ├── envelope-parser.ts      # EL-203: Zod Envelope 파서
 │   │   ├── schemas/
 │   │   │   └── envelope.schema.ts  # EL-203: 스키마 정의
 │   │   ├── stream-parser.ts        # EL-213: Ndjson 스트림 파서
@@ -291,10 +295,11 @@ src/
 
 ---
 
-## Ndjson 봉투 스키마 표준 (v1.0)
+## Ndjson Envelope 스키마 표준 (v1.0)
+에이전트와 데스크톱 앱 사이의 데이터 통신 규약을 의미합니다. 단순히 데이터를 "날것(Raw)"으로 쏘는 것이 아니라, 데이터를 '봉투'라는 표준 규격 안에 넣어 , JSON 형식으로 한 줄씩 끊어서 보내는 스트리밍 전송 방식
 
 ```typescript
-// 성공 봉투 (Unary JSON)
+// 성공 Envelope (Unary JSON)
 interface SuccessEnvelope<T> {
   schema_version: "1.0";
   timestamp: string;      // ISO 8601
@@ -304,7 +309,7 @@ interface SuccessEnvelope<T> {
   data: T;
 }
 
-// 실패 봉투
+// 실패 Envelope
 interface FailEnvelope {
   schema_version: "1.0";
   ok: false;
@@ -348,13 +353,13 @@ type StreamEnvelope =
 | 기존 자산 재사용 | CommandEventEmitter, Ndjson 훅, MCP, team 계약 100% 재사용 |
 
 **Pros:** 경량 UI, 높은 테스트 가능성, 팀 협업 명확, 자산 재사용 극대화  
-**Cons:** CLI 인터페이스 스펙(봉투 계약)의 엄격한 공유 관리 필요
+**Cons:** CLI 인터페이스 스펙(Envelope 계약)의 엄격한 공유 관리 필요
 
 ---
 
 ## Trade-off Analysis
 
-1. **CLI 스펙 결합**: Electron이 CLI의 봉투 계약에 의존. CLI 스펙 변경 시 `envelope.schema.ts` 동시 업데이트 필요. → **완화책**: Zod 스키마 공유 패키지(`@omx/contracts`)로 단일 진실 유지.
+1. **CLI 스펙 결합**: Electron이 CLI의 Envelope 계약에 의존. CLI 스펙 변경 시 `envelope.schema.ts` 동시 업데이트 필요. → **완화책**: Zod 스키마 공유 패키지(`@omx/contracts`)로 단일 진실 유지.
 
 2. **스트리밍 지연**: Ndjson 방식은 HTTP Polling 대비 실시간성 우수. 단, CLI 내부의 `spawnSync`가 잔존할 경우 해당 커맨드는 스트리밍 불가. → **완화책**: EL-211에서 모든 AI 커맨드 `spawn` 전환 완료 후 단계 진입.
 
@@ -366,13 +371,13 @@ type StreamEnvelope =
 
 **쉬워지는 것:**
 - UI 개발자는 LLM/CLI 내부 구조를 몰라도 됨
-- 단위 테스트: spawn mock → 봉투 파서 → IPC 채널 독립 검증
+- 단위 테스트: spawn mock → Envelope 파서 → IPC 채널 독립 검증
 - CLI 팀과 UI 팀의 병렬 개발 (계약 인터페이스만 공유)
-- 새로운 에이전트 기능은 CLI에서 개발 → 봉투 방출 추가만으로 UI 자동 연동
+- 새로운 에이전트 기능은 CLI에서 개발 → Envelope 방출 추가만으로 UI 자동 연동
 
 **어려워지는 것:**
 - CLI `--stream-json` 플래그 미구현 시 Phase 2 전체 블로킹
-- 봉투 스키마 버전 관리 필요 (`schema_version: "1.0"`)
+- Envelope 스키마 버전 관리 필요 (`schema_version: "1.0"`)
 - `.omx/state/` 파일 포맷 변경 시 StateWatcher·LifecycleParser 동시 수정
 
 **재검토가 필요한 시점:**
@@ -386,7 +391,7 @@ type StreamEnvelope =
 ### Phase 1 — Milestone 1~3 (SP-21, SP-22, SP-23)
 - [ ] **EL-201** `src/main/env/env-checker.ts` — omx doctor 헬스체크 모듈
 - [ ] **EL-202** `src/main/cli/cli-wrapper.ts` — spawn 비차단 래퍼 (executeUnary/executeStream)
-- [ ] **EL-203** `src/main/cli/envelope-parser.ts` — Zod 봉투 파서 (parseObject/parseLine)
+- [ ] **EL-203** `src/main/cli/envelope-parser.ts` — Zod Envelope 파서 (parseObject/parseLine)
 - [ ] **EL-204** `src/main/services/task-service.ts` — read-task, claim-task, release-task-claim
 - [ ] **EL-205** (EL-204 확장) — transition-task-status + 불변성 가드
 - [ ] **EL-206** `src/main/mcp/mcp-bridge.ts` — MCP stdio 브릿지 + Teardown 파이프라인
@@ -416,12 +421,13 @@ type StreamEnvelope =
 
 ## 데스크톱 개발팀 실무 가이드
 
-> **핵심 3원칙 체크리스트 (PR 승인 전 반드시 확인)**
+> **핵심 4원칙 체크리스트 (PR 승인 전 반드시 확인)**
 
 ```
 ✅ Electron Main에 LLM SDK import 없음
 ✅ child_process.spawnSync 호출 없음 (spawn만 허용)
 ✅ .omx/state/ 직접 fs.writeFile 없음 (CLI API만 허용)
+✅ src/ 파일 추가·이동·삭제 시 ADR-001 디렉토리 트리 동시 업데이트
 ```
 
 > **방어적 스트림 파서 패턴 (필수 적용)**
@@ -431,7 +437,7 @@ type StreamEnvelope =
 readline.on('line', (line) => {
   try {
     const parsed = JSON.parse(line);
-    dispatch(parsed);            // 유효 봉투 처리
+    dispatch(parsed);            // 유효 Envelope 처리
   } catch {
     sendToConsoleView(line);     // fallback: 원시 텍스트 콘솔로
   }
