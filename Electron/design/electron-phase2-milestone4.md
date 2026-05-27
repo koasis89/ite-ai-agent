@@ -1,6 +1,7 @@
 # Phase 2 Milestone 4 구현 티켓: CLI 출력 통합 및 Ndjson 토큰 스트리밍 파이프라인 구축
 
-**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)
+**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)  
+**UI 와이어프레임:** [electron-UI-example.md](./electron-UI-example.md) — 섹션 1 (EL-213: 기본 채팅 및 도구 실행 뷰)
 
 이 문서는 [ite-ai-roadmap.md](./ite-ai-roadmap.md) Phase 2의 시작인 "CLI 출력 통합 및 Ndjson 토큰 스트리밍 파이프라인 구축" 범위를 실제 구현 가능한 티켓으로 분해한 실행 체크리스트다.
 
@@ -52,10 +53,10 @@
   - 기존 AI 커맨드 호출 시 UI 스레드 차단 없이 백그라운드에서 실행됨.
   - 프로세스 생명주기 관리가 비동기적으로 수행됨.
 - **체크리스트**:
-  - [ ] AI 대화형 핵심 진입점 커맨드의 `spawnSync`를 `spawn` 스트림 기반으로 전환 완료
-  - [ ] `resolveAgentReasoningEffort` 수렴 가이드라인 플래그 연동 확인
-  - [ ] 하위 자식 프로세스의 비정상 중단 상황에 대응하는 `close` 시그널 핸들러 장착
-  - [ ] `EL-211.test.ts` 에서 비동기 프로세스 기동 및 시그널 전파 유효성 테스트 완료
+  - [x] AI 대화형 핵심 진입점 커맨드의 `spawnSync`를 `spawn` 스트림 기반으로 전환 완료
+  - [x] `resolveAgentReasoningEffort` 수렴 가이드라인 플래그 연동 확인
+  - [x] 하위 자식 프로세스의 비정상 중단 상황에 대응하는 `close` 시그널 핸들러 장착
+  - [x] `EL-211.test.ts` 에서 비동기 프로세스 기동 및 시그널 전파 유효성 테스트 완료
 
 ---
 
@@ -76,10 +77,10 @@
 - **DoD (완료 기준)**:
   - CLI를 직접 실행하여 `--stream-json` 플래그 사용 시, 실시간으로 JSON 객체들이 한 줄씩 분출됨을 확인.
 - **체크리스트**:
-  - [ ] CLI 커맨드라인 파서 옵션 목록에 `--stream-json` 글로벌 등록 완료
-  - [ ] **[파이프라인 안전 게이트]** 비JSON 텍스트 오염 유출을 원천 배제하는 직렬화 가드 필터 장착
-  - [ ] `agent_init`, `token`, `tool_call`, `interlude` 표준 봉투 스펙 100% 준수 확인
-  - [ ] `EL-212.test.ts` 단위 테스트 구동 시 표준 출력(stdout) 청크 라인이 유효한 JSON 스키마로 파싱 성공
+  - [x] CLI 커맨드라인 파서 옵션 목록에 `--stream-json` 글로벌 등록 완료
+  - [x] **[파이프라인 안전 게이트]** 비JSON 텍스트 오염 유출을 원천 배제하는 직렬화 가드 필터 장착
+  - [x] `agent_init`, `token`, `tool_call`, `interlude` 표준 봉투 스펙 100% 준수 확인
+  - [x] `EL-212.test.ts` 단위 테스트 구동 시 표준 출력(stdout) 청크 라인이 유효한 JSON 스키마로 파싱 성공
 
 ---
 
@@ -101,7 +102,7 @@
   - 에이전트가 답변을 생성하는 동안 Renderer에 사고 과정과 콘텐츠 토큰이 분리되어 실시간 반영됨.
   - JSON/비JSON 혼합 로그에서도 파이프라인 크래시 없이 유효 토큰만 선별 처리됨.
 - **체크리스트**:
-  - [ ] `readline` 파이프라인 기반의 비차단 라인 파서 구현 완료
-  - [ ] **[UX 특화 게이트]** 에이전트의 사고 토큰과 콘텐츠 토큰을 정밀 인덱싱하는 분기 모듈 구현 완료
-  - [ ] 비양식 로그 라인 인입 시 다운타임 없이 콘솔 뷰로 우회시키는 안전 우회 필터 장착
-  - [ ] Renderer 연동용 IPC 채널 전역 바인딩 및 `stream-parser.test.ts` 통합 검증 완료
+  - [x] `readline` 파이프라인 기반의 비차단 라인 파서 구현 완료
+  - [x] **[UX 특화 게이트]** 에이전트의 사고 토큰과 콘텐츠 토큰을 정밀 인덱싱하는 분기 모듈 구현 완료
+  - [x] 비양식 로그 라인 인입 시 다운타임 없이 콘솔 뷰로 우회시키는 안전 우회 필터 장착
+  - [x] Renderer 연동용 IPC 채널 전역 바인딩 및 `stream-parser.test.ts` 통합 검증 완료

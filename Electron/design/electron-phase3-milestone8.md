@@ -1,6 +1,7 @@
 # Phase 3 Milestone 8 구현 티켓: 다중 상태 정합성 검증 및 예외 처리 하드닝
 
-**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)
+**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)  
+**UI 와이어프레임:** [electron-UI-example.md](./electron-UI-example.md) — 섹션 3 (EL-224, EL-225: 복합 상태 예외 및 지연 스킬 알림)
 
 이 문서는 [ite-ai-roadmap.md](./ite-ai-roadmap.md) Phase 3의 두 번째이자 마지막 마일스톤인 "다중 상태 정합성 검증 및 예외 처리 하드닝" 범위를 실제 구현 가능한 티켓으로 분해한 실행 체크리스트다.
 
@@ -52,10 +53,10 @@
   - 지연 스킬 알림이 플로팅 토스트 형태로 우측 하단에 표시됨.
   - 잘못된 상태 전이 시도 시 채팅창 상단에 상태 클리어 액션 인라인 배너가 표시됨.
 - **체크리스트**:
-  - [ ] 지연(Deferred) 스킬 정보 노출용 우측 하단 플로팅 토스트 컴포넌트 추가
-  - [ ] 롤백 룰 위반 탐지 시 채팅창 상단 인라인 경고 배너 렌더링
-  - [ ] 경고 배너 내 상태 초기화 명령 트리거 액션 버튼 연동
-  - [ ] `EL-224.test.ts` (복합 상태의 Deferred 분리 및 금지된 전이 튕겨내기 테스트)
+  - [x] 지연(Deferred) 스킬 정보 노출용 우측 하단 플로팅 토스트 컴포넌트 추가
+  - [x] 롤백 룰 위반 탐지 시 채팅창 상단 인라인 경고 배너 렌더링
+  - [x] 경고 배너 내 상태 초기화 명령 트리거 액션 버튼 연동
+  - [x] `EL-224.test.ts` (복합 상태의 Deferred 분리 및 금지된 전이 튕겨내기 테스트)
 
 ---
 
@@ -78,10 +79,10 @@
   - 사용자에게 실행 가능한 복구 버튼이 제공되고 재동기화 흐름이 동작함.
   - 빌드/검증 타임에도 동일한 로직으로 무결성 검사 수행 가능.
 - **체크리스트**:
-  - [ ] 로그-매니페스트 교차 검증기(Drift Detector) 로직 작성
-  - [ ] **[옵스(Ops) 게이트]** 정합성 위기 임계치 초과 시 알림 및 자동 복구(`omx setup` 트리거) 버튼 연동
-  - [ ] 빌드/검증 타임 CI 환경에서도 동작 가능한 Headless 검사 인터페이스 개방
-  - [ ] `drift-detector.test.ts` (미등록 플러그인 호출 모킹 시 Drift 감지 및 알림 트리거 검증 완료)
+  - [x] 로그-매니페스트 교차 검증기(Drift Detector) 로직 작성
+  - [x] **[옵스(Ops) 게이트]** 정합성 위기 임계치 초과 시 알림 및 자동 복구(`omx setup` 트리거) 버튼 연동
+  - [x] 빌드/검증 타임 CI 환경에서도 동작 가능한 Headless 검사 인터페이스 개방
+  - [x] `drift-detector.test.ts` (미등록 플러그인 호출 모킹 시 Drift 감지 및 알림 트리거 검증 완료)
 
 ---
 
@@ -100,7 +101,7 @@
   - 에이전트가 멈췄을 때 사용자가 '어떻게 해야 하는지' 명확한 지침을 화면에서 확인 가능.
   - 릴리즈 전 모든 상태 정합성 테스트가 100% 통과함을 보장하는 테스트 스위트 확보.
 - **체크리스트**:
-  - [ ] 에러 코드별 복구 가이드(Markdown) 팝업 구현
-  - [ ] 원클릭 상태 클리어(`omx team api clear-state`) UI 바인딩
-  - [ ] 전체 연동 통합 테스트(`E2E Verification`) 수행
-  - [ ] `EL-226.test.ts` (예외 상황 시 가이드 UI 노출 확인)
+  - [x] 에러 코드별 복구 가이드(Markdown) 팝업 구현
+  - [x] 원클릭 상태 클리어(`omx team api clear-state`) UI 바인딩
+  - [x] 전체 연동 통합 테스트(`E2E Verification`) 수행
+  - [x] `EL-226.test.ts` (예외 상황 시 가이드 UI 노출 확인)

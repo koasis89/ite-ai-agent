@@ -1,6 +1,7 @@
 # Phase 2 Milestone 6 구현 티켓: 정식 수명주기 결과 기반 오버레이 시각화
 
-**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)
+**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)  
+**UI 와이어프레임:** [electron-UI-example.md](./electron-UI-example.md) — 섹션 1 (EL-219: 에이전트 타임라인 HUD)
 
 이 문서는 [ite-ai-roadmap.md](./ite-ai-roadmap.md) Phase 2의 세 번째 마일스톤인 "정식 수명주기 결과 기반 오버레이 시각화" 범위를 실제 구현 가능한 티켓으로 분해한 실행 체크리스트다.
 
@@ -51,10 +52,10 @@
   - 외부(CLI 등)에서 `.omx/state/` 파일을 수정했을 때 Electron Main Process가 이를 즉각 감지함.
   - 파일 레이스 컨디션을 방지하는 순차 읽기 및 디바운스 로직이 적용됨.
 - **체크리스트**:
-  - [ ] `chokidar` 기반 상태 파일 전용 워처 구현
-  - [ ] **[성능 게이트]** I/O 중복 트리거 방지용 Debounce 로직 적용
-  - [ ] 타겟 파일 파싱 및 순수 JSON 객체 반환 모듈 작성
-  - [ ] `state-watcher.test.ts` 에서 모의 파일 수정 시 정확히 1회의 이벤트만 발생함을 증명
+  - [x] `chokidar` 기반 상태 파일 전용 워처 구현
+  - [x] **[성능 게이트]** I/O 중복 트리거 방지용 Debounce 로직 적용
+  - [x] 타겟 파일 파싱 및 순수 JSON 객체 반환 모듈 작성
+  - [x] `state-watcher.test.ts` 에서 모의 파일 수정 시 정확히 1회의 이벤트만 발생함을 증명
 
 ---
 
@@ -75,10 +76,10 @@
 - **DoD (완료 기준)**:
   - 에이전트의 작업 결과(성공/실패/중단) 및 감사 필드가 기술적으로 명확히 추출되어 식별됨.
 - **체크리스트**:
-  - [ ] 수명주기 상태 정규화 및 감사 필드 포함 Zod 스키마 정의
-  - [ ] **[정합성 게이트]** 다중 상태 파일 충돌 시 우선순위 병합(Reconciliation) 함수 구현
-  - [ ] `omx:lifecycle-change` 메인-렌더러 IPC 이벤트 채널 개방
-  - [ ] `lifecycle-parser.test.ts` 에서 다중 모드 상태 데이터 모킹 및 올바른 병합 객체 반환 확인
+  - [x] 수명주기 상태 정규화 및 감사 필드 포함 Zod 스키마 정의
+  - [x] **[정합성 게이트]** 다중 상태 파일 충돌 시 우선순위 병합(Reconciliation) 함수 구현
+  - [x] `omx:lifecycle-change` 메인-렌더러 IPC 이벤트 채널 개방
+  - [x] `lifecycle-parser.test.ts` 에서 다중 모드 상태 데이터 모킹 및 올바른 병합 객체 반환 확인
 
 ---
 
@@ -100,7 +101,7 @@
   - 사용자가 앱 재실행 직후에도 현재 에이전트 상태를 사이드바에서 즉시 확인 가능함.
   - 사고 과정 토큰이 아코디언 UI로 접혀서 렌더링됨.
 - **체크리스트**:
-  - [ ] 메인 채팅 뷰와 분리된 슬라이딩 사이드바(타임라인) 레이아웃 적용
-  - [ ] `reasoning` 토큰 전용 접기/펴기(Collapsible) 아코디언 컴포넌트 구현
-  - [ ] `completion_note` 및 `auto_completed_reason` 노출용 시스템 메시지 뷰 구현
-  - [ ] 마운트 시점의 초기 상태 동기화(Rehydration) 및 렌더링 확인
+  - [x] 메인 채팅 뷰와 분리된 슬라이딩 사이드바(타임라인) 레이아웃 적용
+  - [x] `reasoning` 토큰 전용 접기/펴기(Collapsible) 아코디언 컴포넌트 구현
+  - [x] `completion_note` 및 `auto_completed_reason` 노출용 시스템 메시지 뷰 구현
+  - [x] 마운트 시점의 초기 상태 동기화(Rehydration) 및 렌더링 확인

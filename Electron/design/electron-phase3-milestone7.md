@@ -1,6 +1,7 @@
 # Phase 3 Milestone 7 구현 티켓: 마크다운 프로젝트 위키(Wiki) 및 외부 어댑터 검색 고도화
 
-**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)
+**Reference Architecture:** [ADR-001-electron-agent-architecture.md](./ADR-001-electron-agent-architecture.md)  
+**UI 와이어프레임:** [electron-UI-example.md](./electron-UI-example.md) — 섹션 1 (EL-221: 위키 검색 오버레이)
 
 이 문서는 [ite-ai-roadmap.md](./ite-ai-roadmap.md) Phase 3의 첫 번째 마일스톤인 "마크다운 프로젝트 위키(Wiki) 및 외부 어댑터 검색 고도화" 범위를 실제 구현 가능한 티켓으로 분해한 실행 체크리스트다.
 
@@ -52,10 +53,10 @@
   - 사용자가 위키 목록/문서를 UI에서 즉시 열람 가능함.
   - 에이전트가 위키 도구를 호출하는 동안 전용 애니메이션 프로그레스 배지가 노출됨.
 - **체크리스트**:
-  - [ ] 도구 호출 이벤트 수신 시 인라인 진행 상태(Pulsing) 배지 컴포넌트 구현
-  - [ ] 위키 조회 결과용 마크다운 렌더러 모달/사이드바 컴포넌트 적용
-  - [ ] 위키 검색 완료 시 진행 상태 배지를 체크마크(✅)로 전환하는 트랜지션 적용
-  - [ ] `wiki-wrapper.test.ts` 에서 `query` 및 `read` 모킹 데이터 파싱 검증 완료
+  - [x] 도구 호출 이벤트 수신 시 인라인 진행 상태(Pulsing) 배지 컴포넌트 구현
+  - [x] 위키 조회 결과용 마크다운 렌더러 모달/사이드바 컴포넌트 적용
+  - [x] 위키 검색 완료 시 진행 상태 배지를 체크마크(✅)로 전환하는 트랜지션 적용
+  - [x] `wiki-wrapper.test.ts` 에서 `query` 및 `read` 모킹 데이터 파싱 검증 완료
 
 ---
 
@@ -77,10 +78,10 @@
   - 외부 시스템 미설치/열화/가동 상태가 Enum 기준으로 정확히 식별됨.
   - 연동 성공 시 envelope 메타데이터 및 capability 정보가 UI에 표시됨.
 - **체크리스트**:
-  - [ ] OpenClaw 및 Hermes 대상 `status`, `probe`, `envelope` 명령 래퍼 구현
-  - [ ] **[상태 정합성 게이트]** `unavailable/installed/degraded/running` Zod 스키마 파서 구현 완료
-  - [ ] 비대칭 능력 보고(Capability Report)를 UI 설정 패널에 표시하는 IPC 채널 개방
-  - [ ] `adapter-probe.test.ts` (Hermes `degraded` 상태 및 `envelope` 메타데이터 모킹 파싱 성공)
+  - [x] OpenClaw 및 Hermes 대상 `status`, `probe`, `envelope` 명령 래퍼 구현
+  - [x] **[상태 정합성 게이트]** `unavailable/installed/degraded/running` Zod 스키마 파서 구현 완료
+  - [x] 비대칭 능력 보고(Capability Report)를 UI 설정 패널에 표시하는 IPC 채널 개방
+  - [x] `adapter-probe.test.ts` (Hermes `degraded` 상태 및 `envelope` 메타데이터 모킹 파싱 성공)
 
 ---
 
@@ -99,7 +100,7 @@
   - 에이전트가 위키를 읽었을 때 사용자가 '어느 문서'를 참고했는지 인지 가능.
   - 외부 시스템과의 연결 상태를 UI에서 실시간으로 확인 가능.
 - **체크리스트**:
-  - [ ] 마크다운 지식 뷰어(Pop-up/Slide-in) 컴포넌트 구현
-  - [ ] 외부 어댑터 연결 상태 인디케이터 UI 구현
-  - [ ] 위키 검색 히스토리 및 결과 리스트 UI 구현
-  - [ ] `EL-223.test.ts` (위키 결과 데이터 전달 시 UI 렌더링 확인)
+  - [x] 마크다운 지식 뷰어(Pop-up/Slide-in) 컴포넌트 구현
+  - [x] 외부 어댑터 연결 상태 인디케이터 UI 구현
+  - [x] 위키 검색 히스토리 및 결과 리스트 UI 구현
+  - [x] `EL-223.test.ts` (위키 결과 데이터 전달 시 UI 렌더링 확인)

@@ -50,12 +50,12 @@
   - `omx doctor`의 결과를 JSON으로 파싱하여 누락된 설정을 정확히 식별함.
   - 자동 테스트: `env-checker.test.ts` 에서 정상/미설치/인증누락 시나리오 검증 성공.
 - **체크리스트**:
-  - [ ] `omx --version` 전역 CLI 가용성 체크 로직 구현
-  - [ ] `omx doctor --json` 표준 반환 스키마 유효성 파서 구현
-  - [ ] `codex login status` 파싱 및 불일치 예외 처리 가이드라인 수립
-  - [ ] `omx exec` 핸드셰이크 커맨드를 이용한 런타임 쉘 연기 테스트 구현
-  - [ ] Renderer 레이어로 가용 상태를 전달할 `env_status_get` IPC 쿼리 채널 개방
-  - [ ] `env-checker.test.ts` 에서 정상/미설치/인증누락 시나리오 검증 성공
+  - [x] `omx --version` 전역 CLI 가용성 체크 로직 구현
+  - [x] `omx doctor --json` 표준 반환 스키마 유효성 파서 구현
+  - [x] `codex login status` 파싱 및 불일치 예외 처리 가이드라인 수립
+  - [x] `omx exec` 핸드셰이크 커맨드를 이용한 런타임 쉘 연기 테스트 구현
+  - [x] Renderer 레이어로 가용 상태를 전달할 `env_status_get` IPC 쿼리 채널 개방
+  - [x] `env-checker.test.ts` 에서 정상/미설치/인증누락 시나리오 검증 성공
 
 ---
 
@@ -78,9 +78,9 @@
   - 응답 JSON 봉투(Envelope)가 유효하지 않을 경우 명확한 파싱 에러 반환.
   - 자동 테스트: `cli-wrapper.test.ts` 에서 mock process를 이용한 비동기 흐름 검증 성공.
 - **체크리스트**:
-  - [ ] `child_process.spawn` 기반 비동기 커맨드 실행기 설계 및 에러 핸들링 구조 확립
-  - [ ] Unary JSON 명령 처리를 위한 완료 시점 버퍼 합산 및 Zod 스키마 파서 구현
-  - [ ] **[확장성 게이트]** `readline` 모듈 기반 Ndjson 파이프라인 대응용 스트림 바인딩 인터페이스 구현
-  - [ ] 표준 JSON 봉투 양식(`ok: false` 시 `error: { message, code }`) 분기 처리 모듈 자산화
-  - [ ] `cli-wrapper.test.ts` 에서 `omx team api read-task` 모킹 시나리오로 단위 테스트 완료
+  - [x] `child_process.spawn` 기반 비동기 커맨드 실행기 설계 및 에러 핸들링 구조 확립
+  - [x] Unary JSON 명령 처리를 위한 완료 시점 버퍼 합산 및 Zod 스키마 파서 구현
+  - [x] **[확장성 게이트]** `readline` 모듈 기반 Ndjson 파이프라인 대응용 스트림 바인딩 인터페이스 구현
+  - [x] 표준 JSON 봉투 양식(`ok: false` 시 `error: { message, code }`) 분기 처리 모듈 자산화
+  - [x] `cli-wrapper.test.ts` 에서 `omx team api read-task` 모킹 시나리오로 단위 테스트 완료
 
