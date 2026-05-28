@@ -88,8 +88,8 @@ interface ChatContainerProps {
   /** 스트리밍 중인 응답 텍스트 (assistant 버블로 실시간 표시) */
   streamingText?: string;
   /** 스트림 에러 목록 */
-  streamErrors?: string[];
-}
+  streamErrors?: string[];  /** Gemini API 키 설정 여부 — ModelSelector로 전달하여 Gemini 항목 활성화 제어 */
+  geminiKeyAvailable?: boolean;}
 
 /**
  * ChatContainer
@@ -104,6 +104,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   onModelChange,
   streamingText = "",
   streamErrors = [],
+  geminiKeyAvailable = false,
 }) => {
   // ─── 상태 ─────────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -120,6 +121,22 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
   const interviewInputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** 직전 streamingText 값 추적 — 비워질 때 assistant 메시지로 확정 */
+  const prevStreamingRef = useRef("");
+
+  // ─── streamingText 확정: 새 질문 전송 시 이전 응답을 messages에 저장 ───────
+
+  useEffect(() => {
+    const prev = prevStreamingRef.current.trim();
+    const isCleared = prev && !streamingText;
+    if (isCleared && prev !== "Stream finished.") {
+      setMessages((m) => [
+        ...m,
+        { id: `assistant-${Date.now()}`, role: "assistant", content: prev },
+      ]);
+    }
+    prevStreamingRef.current = streamingText;
+  }, [streamingText]);
 
   // ─── IPC 이벤트 구독 ──────────────────────────────────────────────────────
 
@@ -477,6 +494,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             <ModelSelector
               value={selectedModel}
               onChange={onModelChange ?? (() => undefined)}
+              geminiKeyAvailable={geminiKeyAvailable}
             />
             <button
               onClick={handleSendMessage}

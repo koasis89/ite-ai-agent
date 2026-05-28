@@ -301,7 +301,8 @@ export class CodexStreamParser {
         break;
       }
 
-      case "thread.completed": {
+      case "thread.completed":
+      case "turn.completed": {
         const envelope: DoneEnvelope = { type: "done", exitCode: 0 };
         this.callbacks.onDone?.(envelope);
         break;

@@ -30,12 +30,13 @@ import {
   STREAM_TOOL_RESULT_CHANNEL,
   STREAM_INTERLUDE_CHANNEL,
   STREAM_DONE_CHANNEL,
-  STREAM_ERROR_CHANNEL,
   type StreamParser,
   type CodexStreamParser,
 } from "../cli/stream-parser";
 import { executeCommand, type ExecuteCommandHandle } from "../core/execute-command";
 import type { ReasoningEffort } from "../cli/constants";
+import { loadGeminiApiKey } from "../services/gemini-key-store";
+import { sessionLogger } from "../logs/session-logger";
 
 // ─── IPC 채널 상수 ────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ interface ActiveSession {
 }
 
 let _activeSession: ActiveSession | null = null;
+let _geminiAbortController: AbortController | null = null;
 
 // ─── 브로드캐스트 헬퍼 ────────────────────────────────────────────────────────
 
@@ -62,6 +64,81 @@ function broadcastToRenderers(channel: string, payload: unknown): void {
     if (!win.isDestroyed()) {
       win.webContents.send(channel, payload);
     }
+  }
+}
+
+// ─── Gemini 직접 API 스트리밍 ─────────────────────────────────────────────────
+
+async function streamGeminiDirect(
+  model: string,
+  apiKey: string,
+  prompt: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      sessionLogger.logError(`Gemini API error ${response.status}: ${errText}`);
+      broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (!data) continue;
+        try {
+          const parsed = JSON.parse(data) as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          };
+          const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            sessionLogger.logLlmResponseToken(text);
+            broadcastToRenderers(STREAM_TOKEN_CHANNEL, { text });
+          }
+        } catch {
+          // malformed SSE line — ignore
+        }
+      }
+    }
+
+    sessionLogger.flushLlmResponse();
+    broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === "AbortError") return;
+    const msg = e instanceof Error ? e.message : String(e);
+    sessionLogger.logError(`Gemini stream error: ${msg}`);
+    broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+  } finally {
+    _geminiAbortController = null;
   }
 }
 
@@ -88,6 +165,12 @@ export function startAgentStream(
     stopAgentStream();
   }
 
+  // ─── LLM 요청 로그 기록 ───────────────────────────────────────────────────
+  // echo/echo-reverse 테스트 모델은 실제 LLM 호출이 아니므로 제외
+  if (model !== "echo" && model !== "echo-reverse") {
+    sessionLogger.logLlmRequest(args[0] ?? "", model);
+  }
+
   // ─── echo / echo-reverse 테스트 모델 (로컈, 네트워크 미사용) ───────────────────
   if (model === "echo" || model === "echo-reverse") {
     const inputText = args[0] ?? "";
@@ -105,6 +188,21 @@ export function startAgentStream(
         broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
       }
     }, 20);
+    return;
+  }
+
+  // ─── Gemini 모델 직접 API 경로 ─────────────────────────────────────────────
+  const isGemini = (typeof model === "string" && model.startsWith("gemini-")) || provider === "gemini";
+  if (isGemini) {
+    const apiKey = loadGeminiApiKey();
+    if (!apiKey) {
+      sessionLogger.logError("GEMINI_API_KEY not configured");
+      broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+    const abort = new AbortController();
+    _geminiAbortController = abort;
+    void streamGeminiDirect(model ?? "gemini-2.5-flash", apiKey, args[0] ?? "", abort.signal);
     return;
   }
 
@@ -126,24 +224,33 @@ export function startAgentStream(
       // onRawLine 미제공: execute-command의 StreamEnvelope 필터에서 걸린
       // codex 이벤트(VALID_STREAM_TYPES 미등록)를 에러로 브로드캐스트하지 않기 위함
       onError: (errText) => {
-        broadcastToRenderers(STREAM_ERROR_CHANNEL, { type: "error", message: errText });
+        sessionLogger.logSystemMessage(errText);
       },
     });
 
     const codexParser = createCodexStreamParser(execHandle.child, {
       onAgentInit: (e) => broadcastToRenderers("omx:stream-agent-init", e),
       onThinkingToken: (e) => broadcastToRenderers(STREAM_THINKING_CHANNEL, e),
-      onContentToken: (e) => broadcastToRenderers(STREAM_TOKEN_CHANNEL, e),
-      onToolCall: (e) => broadcastToRenderers(STREAM_TOOL_CALL_CHANNEL, e),
+      onContentToken: (e) => {
+        sessionLogger.logLlmResponseToken(e.text);
+        broadcastToRenderers(STREAM_TOKEN_CHANNEL, e);
+      },
+      onToolCall: (e) => {
+        sessionLogger.logToolCall(e.toolName, e.args);
+        broadcastToRenderers(STREAM_TOOL_CALL_CHANNEL, e);
+      },
       onToolResult: (e) => broadcastToRenderers(STREAM_TOOL_RESULT_CHANNEL, e),
       onInterlude: (e) => broadcastToRenderers(STREAM_INTERLUDE_CHANNEL, e),
       onDone: (e) => {
+        sessionLogger.flushLlmResponse();
         broadcastToRenderers(STREAM_DONE_CHANNEL, e);
         _activeSession = null;
       },
-      onStreamError: (e) => broadcastToRenderers(STREAM_ERROR_CHANNEL, e),
+      onStreamError: (e) => {
+        sessionLogger.logError(e.message);
+      },
       onRawLine: (line) => {
-        broadcastToRenderers(STREAM_ERROR_CHANNEL, { type: "error", message: line });
+        sessionLogger.logSystemMessage(line);
       },
     });
 
@@ -151,30 +258,48 @@ export function startAgentStream(
 
     execHandle.exitCode
       .then(() => {
-        _activeSession = null;
+        if (_activeSession) {
+          sessionLogger.flushLlmResponse();
+          broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+          _activeSession = null;
+        }
       })
       .catch(() => {
-        _activeSession = null;
+        if (_activeSession) {
+          sessionLogger.flushLlmResponse();
+          broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+          _activeSession = null;
+        }
       });
 
     return;
   }
 
   // ─── 기존 ask / sparkshell 경로 ────────────────────────────────────────────
+  // Gemini 모델 또는 provider=="gemini"  일 경우 API 키 환경변수 주입
+  const isGeminiAsk =
+    provider === "gemini" ||
+    (typeof model === "string" && model.startsWith("gemini-"));
+  const geminiKeyAsk = isGeminiAsk ? loadGeminiApiKey() : null;
+  const askExtraEnv = geminiKeyAsk ? { GEMINI_API_KEY: geminiKeyAsk } : undefined;
+
   const handle = executeCommand({
     command,
     // ask 커맨드는 provider가 command 바로 뒤에 필요: omx ask <provider> --stream-json ...
     // 지정 없으면 "claude" 기본값 사용
-    provider: command === "ask" ? (provider ?? "claude") : provider,
+    provider: command === "ask"
+      ? (isGeminiAsk ? "gemini" : (provider ?? "claude"))
+      : provider,
     args,
     streamJson: true,
     reasoningEffort,
+    extraEnv: askExtraEnv,
     onRawLine: (line) => {
-      // 비JSON 로그 → 콘솔 뷰 우회 (stream-error 채널 재활용)
-      broadcastToRenderers(STREAM_ERROR_CHANNEL, { type: "error", message: line });
+      // 비JSON 로그 → 로그 파일만 기록
+      sessionLogger.logSystemMessage(line);
     },
     onError: (errText) => {
-      broadcastToRenderers(STREAM_ERROR_CHANNEL, { type: "error", message: errText });
+      sessionLogger.logSystemMessage(errText);
     },
   });
 
@@ -185,30 +310,47 @@ export function startAgentStream(
     onThinkingToken: (e) => broadcastToRenderers(STREAM_THINKING_CHANNEL, e),
 
     // 결과 텍스트 → 메인 채팅 채널
-    onContentToken: (e) => broadcastToRenderers(STREAM_TOKEN_CHANNEL, e),
+    onContentToken: (e) => {
+      sessionLogger.logLlmResponseToken(e.text);
+      broadcastToRenderers(STREAM_TOKEN_CHANNEL, e);
+    },
 
-    onToolCall: (e) => broadcastToRenderers(STREAM_TOOL_CALL_CHANNEL, e),
+    onToolCall: (e) => {
+      sessionLogger.logToolCall(e.toolName, e.args);
+      broadcastToRenderers(STREAM_TOOL_CALL_CHANNEL, e);
+    },
     onToolResult: (e) => broadcastToRenderers(STREAM_TOOL_RESULT_CHANNEL, e),
     onInterlude: (e) => broadcastToRenderers(STREAM_INTERLUDE_CHANNEL, e),
     onDone: (e) => {
+      sessionLogger.flushLlmResponse();
       broadcastToRenderers(STREAM_DONE_CHANNEL, e);
       _activeSession = null;
     },
-    onStreamError: (e) => broadcastToRenderers(STREAM_ERROR_CHANNEL, e),
+    onStreamError: (e) => {
+      sessionLogger.logError(e.message);
+    },
     onRawLine: (line) => {
-      broadcastToRenderers(STREAM_ERROR_CHANNEL, { type: "error", message: line });
+      sessionLogger.logSystemMessage(line);
     },
   });
 
   _activeSession = { handle, parser };
 
-  // 세션 종료 후 상태 정리
+  // 세션 종료 후 상태 정리 — onDone 미발생 시 fallback done 이벤트 전송
   handle.exitCode
     .then(() => {
-      _activeSession = null;
+      if (_activeSession) {
+        sessionLogger.flushLlmResponse();
+        broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+        _activeSession = null;
+      }
     })
     .catch(() => {
-      _activeSession = null;
+      if (_activeSession) {
+        sessionLogger.flushLlmResponse();
+        broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+        _activeSession = null;
+      }
     });
 }
 
@@ -218,6 +360,10 @@ export function startAgentStream(
  * 현재 활성 스트리밍 세션을 강제 종료한다.
  */
 export function stopAgentStream(): void {
+  if (_geminiAbortController) {
+    _geminiAbortController.abort();
+    _geminiAbortController = null;
+  }
   if (!_activeSession) return;
 
   const { handle, parser } = _activeSession;

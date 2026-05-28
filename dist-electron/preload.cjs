@@ -26,7 +26,12 @@ var electronAPI = {
   startLifecycleWatcher: (stateDir) => import_electron.ipcRenderer.invoke("omx:lifecycle-start", stateDir),
   stopLifecycleWatcher: () => import_electron.ipcRenderer.invoke("omx:lifecycle-stop"),
   onAdapterStatus: (callback) => on("omx:adapter-status", callback),
-  probeAdapter: (target) => import_electron.ipcRenderer.invoke("omx:adapter-probe", target)
+  probeAdapter: (target) => import_electron.ipcRenderer.invoke("omx:adapter-probe", target),
+  geminiKey: {
+    save: (key) => import_electron.ipcRenderer.invoke("omx:gemini-key:save", key),
+    clear: () => import_electron.ipcRenderer.invoke("omx:gemini-key:clear"),
+    getStatus: () => import_electron.ipcRenderer.invoke("omx:gemini-key:status")
+  }
 };
 import_electron.contextBridge.exposeInMainWorld("electronAPI", electronAPI);
 //# sourceMappingURL=preload.cjs.map

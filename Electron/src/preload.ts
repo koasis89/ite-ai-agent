@@ -39,6 +39,12 @@ const electronAPI = {
 
   onAdapterStatus: (callback: Listener) => on("omx:adapter-status", callback),
   probeAdapter: (target: "openclaw" | "hermes") => ipcRenderer.invoke("omx:adapter-probe", target),
+
+  geminiKey: {
+    save: (key: string) => ipcRenderer.invoke("omx:gemini-key:save", key) as Promise<{ ok: boolean }>,
+    clear: () => ipcRenderer.invoke("omx:gemini-key:clear") as Promise<{ ok: boolean }>,
+    getStatus: () => ipcRenderer.invoke("omx:gemini-key:status") as Promise<{ available: boolean }>,
+  },
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

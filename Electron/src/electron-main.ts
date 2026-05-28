@@ -2,15 +2,18 @@ import { app, BrowserWindow, session } from "electron";
 import path from "node:path";
 import { registerAdapterIpc } from "./main/ipc/adapter-ipc";
 import { registerCliIpc } from "./main/ipc/cli-ipc";
+import { registerEnvIpc } from "./main/ipc/env-ipc";
 import { registerInterludeIpc } from "./main/ipc/interlude-ipc";
 import { registerStateIpc } from "./main/ipc/state-ipc";
 import { registerStreamBridgeIpc } from "./main/ipc/stream-bridge-ipc";
+import { sessionLogger } from "./main/logs/session-logger";
 
 const bundleDir = __dirname;
 const isDev = !app.isPackaged;
 
 function registerIpc(): void {
   registerCliIpc();
+  registerEnvIpc();
   registerInterludeIpc();
   registerStateIpc();
   registerStreamBridgeIpc();
@@ -67,6 +70,9 @@ app.whenReady().then(async () => {
       },
     });
   });
+
+  // 세션 로거 초기화 — IPC 등록 전에 실행하여 첫 메시지부터 캡처
+  sessionLogger.init(path.join(app.getPath("userData"), "logs"));
 
   registerIpc();
   await createWindow();

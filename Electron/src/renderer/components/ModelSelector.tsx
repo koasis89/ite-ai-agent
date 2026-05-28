@@ -14,19 +14,23 @@ export interface ModelDef {
   label: string;
   badge?: string;
   badgeAccent?: boolean;
-  group: "test" | "standard";
+  group: "test" | "standard" | "gemini";
 }
 
 export const MODEL_LIST: ModelDef[] = [
   // ── 테스트 모델 (로컬 처리, 네트워크 불필요) ──
   { id: "echo",         label: "Echo",         badge: "테스트",  badgeAccent: true, group: "test" },
   { id: "echo-reverse", label: "Echo Reverse",  badge: "테스트",  badgeAccent: true, group: "test" },
-  // ── 실제 모델 ──
+  // ── OpenAI / Anthropic 모델 ──
   { id: "gpt-4o",             label: "GPT-4o",             badge: "1x",    group: "standard" },
   { id: "gpt-4o-mini",        label: "GPT-4o mini",        badge: "0.1x",  group: "standard" },
   { id: "o3",                 label: "o3",                 badge: "8x",    group: "standard" },
   { id: "o4-mini",            label: "o4-mini",            badge: "0.5x",  group: "standard" },
   { id: "claude-sonnet-4-5",  label: "Claude Sonnet 4.5",  badge: "1x",    group: "standard" },
+  // ── Google Gemini 모델 ──
+  { id: "gemini-2.5-pro",   label: "Gemini 2.5 Pro",   badge: "Google", group: "gemini" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash",  badge: "Google", group: "gemini" },
+  { id: "gemini-1.5-pro",   label: "Gemini 1.5 Pro",   badge: "Google", group: "gemini" },
 ];
 
 // ─── 컴포넌트 ────────────────────────────────────────────────────────────────
@@ -34,9 +38,11 @@ export const MODEL_LIST: ModelDef[] = [
 interface ModelSelectorProps {
   value: string;
   onChange: (modelId: string) => void;
+  /** Gemini API 키 설정 여부 — false이면 Gemini 항목을 비활성화 표시 */
+  geminiKeyAvailable?: boolean;
 }
 
-export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange }) => {
+export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange, geminiKeyAvailable = false }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +67,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange })
 
   const testModels = MODEL_LIST.filter((m) => m.group === "test");
   const standardModels = MODEL_LIST.filter((m) => m.group === "standard");
+  const geminiModels = MODEL_LIST.filter((m) => m.group === "gemini");
 
   return (
     <div ref={containerRef} className="model-selector-root">
@@ -111,6 +118,22 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange })
           {standardModels.map((m) => (
             <ModelItem key={m.id} model={m} selected={m.id === value} onSelect={handleSelect} />
           ))}
+
+          {/* 구분선 */}
+          <div className="model-group-divider" />
+
+          {/* Google Gemini 그룹 */}
+          <div className="model-group-label">Google Gemini</div>
+          {geminiModels.map((m) => (
+            <ModelItem
+              key={m.id}
+              model={m}
+              selected={m.id === value}
+              onSelect={handleSelect}
+              disabled={!geminiKeyAvailable}
+              disabledTooltip="Gemini API 키 미설정 — 클릭하여 키 등록"
+            />
+          ))}
         </div>
       )}
     </div>
@@ -123,13 +146,18 @@ const ModelItem: React.FC<{
   model: ModelDef;
   selected: boolean;
   onSelect: (id: string) => void;
-}> = ({ model, selected, onSelect }) => (
+  disabled?: boolean;
+  disabledTooltip?: string;
+}> = ({ model, selected, onSelect, disabled = false, disabledTooltip }) => (
   <button
-    className={`model-dropdown-item${selected ? " selected" : ""}`}
+    className={`model-dropdown-item${selected ? " selected" : ""}${disabled ? " disabled" : ""}`}
     role="option"
     aria-selected={selected}
+    aria-disabled={disabled}
     onClick={() => onSelect(model.id)}
     type="button"
+    title={disabled ? disabledTooltip : undefined}
+    style={disabled ? { opacity: 0.45, cursor: "pointer" } : undefined}
   >
     <span className="model-item-check">{selected ? "✓" : ""}</span>
     <span className="model-item-label">{model.label}</span>

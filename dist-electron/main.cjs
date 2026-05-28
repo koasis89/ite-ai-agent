@@ -27,7 +27,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // Electron/src/electron-main.ts
-var import_electron7 = require("electron");
+var import_electron9 = require("electron");
 var import_node_path = __toESM(require("node:path"), 1);
 
 // Electron/src/main/ipc/adapter-ipc.ts
@@ -799,10 +799,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path3) {
-  if (!path3)
+function getElementAtPath(obj, path5) {
+  if (!path5)
     return obj;
-  return path3.reduce((acc, key) => acc?.[key], obj);
+  return path5.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1211,11 +1211,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path3, issues) {
+function prefixIssues(path5, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path3);
+    iss.path.unshift(path5);
     return iss;
   });
 }
@@ -1362,16 +1362,16 @@ function flattenError(error51, mapper = (issue2) => issue2.message) {
 }
 function formatError(error51, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error52, path3 = []) => {
+  const processError = (error52, path5 = []) => {
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path3, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path5, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
       } else {
-        const fullpath = [...path3, ...issue2.path];
+        const fullpath = [...path5, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -1398,17 +1398,17 @@ function formatError(error51, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error51, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error52, path3 = []) => {
+  const processError = (error52, path5 = []) => {
     var _a3, _b;
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path3, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path5, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
       } else {
-        const fullpath = [...path3, ...issue2.path];
+        const fullpath = [...path5, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -1440,8 +1440,8 @@ function treeifyError(error51, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path3 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path3) {
+  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path5) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -14133,13 +14133,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path3 = ref.slice(1).split("/").filter(Boolean);
-  if (path3.length === 0) {
+  const path5 = ref.slice(1).split("/").filter(Boolean);
+  if (path5.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path3[0] === defsKey) {
-    const key = path3[1];
+  if (path5[0] === defsKey) {
+    const key = path5[1];
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -14884,8 +14884,187 @@ function registerCliIpc() {
   );
 }
 
-// Electron/src/main/ipc/interlude-ipc.ts
+// Electron/src/main/ipc/env-ipc.ts
 var import_electron4 = require("electron");
+
+// Electron/src/main/env/env-checker.ts
+var import_child_process2 = require("child_process");
+
+// Electron/src/main/services/gemini-key-store.ts
+var import_electron3 = require("electron");
+var import_fs = require("fs");
+var import_path = __toESM(require("path"), 1);
+function getKeyFilePath() {
+  return import_path.default.join(import_electron3.app.getPath("userData"), "gemini-key.bin");
+}
+function saveGeminiApiKey(plaintext) {
+  if (!import_electron3.safeStorage.isEncryptionAvailable()) {
+    throw new Error("OS \uD0A4\uCCB4\uC778 \uC554\uD638\uD654\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 (safeStorage unavailable)");
+  }
+  const encrypted = import_electron3.safeStorage.encryptString(plaintext);
+  (0, import_fs.writeFileSync)(getKeyFilePath(), encrypted);
+}
+function loadGeminiApiKey() {
+  const keyFile = getKeyFilePath();
+  if (!(0, import_fs.existsSync)(keyFile)) {
+    return process.env["GEMINI_API_KEY"] ?? null;
+  }
+  const stat = (0, import_fs.statSync)(keyFile);
+  if (stat.size === 0) {
+    return process.env["GEMINI_API_KEY"] ?? null;
+  }
+  if (!import_electron3.safeStorage.isEncryptionAvailable()) {
+    return null;
+  }
+  try {
+    const encrypted = (0, import_fs.readFileSync)(keyFile);
+    return import_electron3.safeStorage.decryptString(encrypted);
+  } catch {
+    return null;
+  }
+}
+function clearGeminiApiKey() {
+  const keyFile = getKeyFilePath();
+  if ((0, import_fs.existsSync)(keyFile)) {
+    (0, import_fs.writeFileSync)(keyFile, Buffer.alloc(0));
+  }
+}
+
+// Electron/src/main/env/env-checker.ts
+var OmxDoctorResultSchema = external_exports.object({
+  ok: external_exports.boolean(),
+  missing: external_exports.array(external_exports.string()).optional(),
+  errors: external_exports.array(external_exports.string()).optional()
+});
+function runCommand(cmd, args) {
+  return new Promise((resolve, reject) => {
+    const child = (0, import_child_process2.spawn)(cmd, args, { shell: process.platform === "win32" });
+    const chunks = [];
+    const errChunks = [];
+    child.stdout.on("data", (chunk) => chunks.push(chunk));
+    child.stderr.on("data", (chunk) => errChunks.push(chunk));
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(Buffer.concat(chunks).toString("utf-8").trim());
+      } else {
+        reject(
+          new Error(
+            `[${cmd}] exit ${code}: ${Buffer.concat(errChunks).toString("utf-8").trim()}`
+          )
+        );
+      }
+    });
+    child.on("error", (err) => reject(err));
+  });
+}
+async function checkCliVersion() {
+  try {
+    const out = await runCommand("omx", ["--version"]);
+    const match = out.match(/(\d+\.\d+\.\d+)/);
+    if (!match) {
+      return { ok: false, code: "version_mismatch", message: `Unrecognized version output: ${out}` };
+    }
+    return { ok: true, code: "ok", version: match[1] };
+  } catch {
+    return { ok: false, code: "cli_not_found", message: "omx CLI\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. PATH\uB97C \uD655\uC778\uD558\uC138\uC694." };
+  }
+}
+async function runOmxDoctor() {
+  try {
+    const out = await runCommand("omx", ["doctor", "--json"]);
+    let raw;
+    try {
+      raw = JSON.parse(out);
+    } catch {
+      return { ok: false, code: "doctor_failed", message: `JSON \uD30C\uC2F1 \uC2E4\uD328: ${out}` };
+    }
+    const result = OmxDoctorResultSchema.safeParse(raw);
+    if (!result.success) {
+      return { ok: false, code: "doctor_failed", message: `\uC2A4\uD0A4\uB9C8 \uBD88\uC77C\uCE58: ${result.error.message}` };
+    }
+    const data = result.data;
+    if (!data.ok) {
+      return { ok: false, code: "doctor_failed", missing: data.missing ?? [], message: "omx doctor \uC2E4\uD328" };
+    }
+    return { ok: true, code: "ok" };
+  } catch (err) {
+    return { ok: false, code: "doctor_failed", message: String(err) };
+  }
+}
+async function verifyCodexAuth() {
+  try {
+    const out = await runCommand("codex", ["login", "status"]);
+    if (!out.toLowerCase().includes("authenticated")) {
+      return { ok: false, code: "auth_missing", message: `\uC778\uC99D \uBBF8\uD655\uC778 (\uC751\uB2F5: ${out})` };
+    }
+    return { ok: true, code: "ok" };
+  } catch (err) {
+    return { ok: false, code: "auth_missing", message: String(err) };
+  }
+}
+async function handshakeCheck() {
+  try {
+    const out = await runCommand("omx", [
+      "exec",
+      "--skip-git-repo-check",
+      "-C",
+      ".",
+      "Reply with exactly OMX-EXEC-OK"
+    ]);
+    if (!out.includes("OMX-EXEC-OK")) {
+      return { ok: false, code: "handshake_failed", message: `\uD578\uB4DC\uC170\uC774\uD06C \uC2E4\uD328 (\uC751\uB2F5: ${out})` };
+    }
+    return { ok: true, code: "ok" };
+  } catch (err) {
+    return { ok: false, code: "handshake_failed", message: String(err) };
+  }
+}
+async function runFullEnvCheck() {
+  const versionResult = await checkCliVersion();
+  if (!versionResult.ok) return versionResult;
+  const doctorResult = await runOmxDoctor();
+  if (!doctorResult.ok) return doctorResult;
+  const authResult = await verifyCodexAuth();
+  if (!authResult.ok) return authResult;
+  const handshakeResult = await handshakeCheck();
+  if (!handshakeResult.ok) return handshakeResult;
+  return { ok: true, code: "ok", version: versionResult.version };
+}
+
+// Electron/src/main/ipc/env-ipc.ts
+var cachedStatus = null;
+var GEMINI_KEY_SAVE_CHANNEL = "omx:gemini-key:save";
+var GEMINI_KEY_CLEAR_CHANNEL = "omx:gemini-key:clear";
+var GEMINI_KEY_STATUS_CHANNEL = "omx:gemini-key:status";
+function registerEnvIpc() {
+  import_electron4.ipcMain.handle("env_status_get", async () => {
+    if (cachedStatus !== null) {
+      return cachedStatus;
+    }
+    cachedStatus = await runFullEnvCheck();
+    return cachedStatus;
+  });
+  import_electron4.ipcMain.handle("env_status_refresh", async () => {
+    cachedStatus = null;
+    cachedStatus = await runFullEnvCheck();
+    return cachedStatus;
+  });
+  import_electron4.ipcMain.handle(GEMINI_KEY_SAVE_CHANNEL, (_event, key) => {
+    saveGeminiApiKey(key);
+    return { ok: true };
+  });
+  import_electron4.ipcMain.handle(GEMINI_KEY_CLEAR_CHANNEL, () => {
+    clearGeminiApiKey();
+    return { ok: true };
+  });
+  import_electron4.ipcMain.handle(GEMINI_KEY_STATUS_CHANNEL, () => {
+    const key = loadGeminiApiKey();
+    return { available: key !== null && key.length > 0 };
+  });
+}
+
+// Electron/src/main/ipc/interlude-ipc.ts
+var import_electron6 = require("electron");
 
 // Electron/src/main/cli/stdin-writer.ts
 async function writeToStdin(opts) {
@@ -14920,7 +15099,7 @@ function waitForDrain(child) {
 }
 
 // Electron/src/main/cli/interlude-triager.ts
-var import_electron3 = require("electron");
+var import_electron5 = require("electron");
 var INTERLUDE_ACK_CHANNEL = "omx:interlude-ack";
 var InterludeKindSchema = external_exports.enum([
   "askUserQuestion",
@@ -14966,8 +15145,8 @@ var INTERLUDE_ERROR_CHANNEL = "omx:interlude-error";
 var _activeChild = null;
 var _pendingCallIds = /* @__PURE__ */ new Set();
 function registerInterludeIpc() {
-  import_electron4.ipcMain.removeHandler(INTERLUDE_ACK_CHANNEL);
-  import_electron4.ipcMain.handle(INTERLUDE_ACK_CHANNEL, async (_event, rawAck) => {
+  import_electron6.ipcMain.removeHandler(INTERLUDE_ACK_CHANNEL);
+  import_electron6.ipcMain.handle(INTERLUDE_ACK_CHANNEL, async (_event, rawAck) => {
     return handleInterludeAck(rawAck);
   });
 }
@@ -15020,7 +15199,7 @@ function handleCancellation(ack) {
   return { ok: true };
 }
 function broadcastToRenderers(channel, payload) {
-  for (const win of import_electron4.BrowserWindow.getAllWindows()) {
+  for (const win of import_electron6.BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send(channel, payload);
     }
@@ -15028,11 +15207,11 @@ function broadcastToRenderers(channel, payload) {
 }
 
 // Electron/src/main/ipc/state-ipc.ts
-var import_electron5 = require("electron");
+var import_electron7 = require("electron");
 
 // Electron/src/main/state/state-watcher.ts
 var fs = __toESM(require("fs"), 1);
-var path = __toESM(require("path"), 1);
+var path2 = __toESM(require("path"), 1);
 var DEBOUNCE_MS = 150;
 var STATE_FILE_PATTERN = /^(team-state|skill-active-state|.*-state)\.json$/;
 var StateWatcher = class {
@@ -15113,8 +15292,8 @@ var StateWatcher = class {
    * 상태 디렉터리가 생성되면 자동으로 start() 재진입한다.
    */
   _watchForDirCreation(stateDir) {
-    const parentDir = path.dirname(stateDir);
-    const targetName = path.basename(stateDir);
+    const parentDir = path2.dirname(stateDir);
+    const targetName = path2.basename(stateDir);
     if (!fs.existsSync(parentDir)) return;
     try {
       const parentWatcher = fs.watch(parentDir, { persistent: false }, (event, filename) => {
@@ -15150,7 +15329,7 @@ var StateWatcher = class {
         (event, filename) => {
           if (!filename || !STATE_FILE_PATTERN.test(filename)) return;
           if (event === "rename" && !this.fileWatchers.has(filename)) {
-            const fullPath = path.join(this.stateDir, filename);
+            const fullPath = path2.join(this.stateDir, filename);
             if (fs.existsSync(fullPath)) {
               this._attachFileWatcher(filename);
             }
@@ -15165,7 +15344,7 @@ var StateWatcher = class {
   /** 개별 파일에 fs.watch를 붙인다 */
   _attachFileWatcher(filename) {
     if (this.fileWatchers.has(filename)) return;
-    const fullPath = path.join(this.stateDir, filename);
+    const fullPath = path2.join(this.stateDir, filename);
     try {
       const watcher = fs.watch(fullPath, { persistent: false }, () => {
         this._scheduleRead(filename);
@@ -15210,7 +15389,7 @@ var StateWatcher = class {
    * 파일 없음 또는 파싱 실패 시 null 반환.
    */
   _readStateFile(filename) {
-    const fullPath = path.join(this.stateDir, filename);
+    const fullPath = path2.join(this.stateDir, filename);
     try {
       const raw = fs.readFileSync(fullPath, "utf-8");
       return JSON.parse(raw);
@@ -15401,7 +15580,7 @@ var LIFECYCLE_GET_CHANNEL = "omx:lifecycle-get";
 var LIFECYCLE_START_CHANNEL = "omx:lifecycle-start";
 var LIFECYCLE_STOP_CHANNEL = "omx:lifecycle-stop";
 function broadcastLifecycleChange(state) {
-  for (const win of import_electron5.BrowserWindow.getAllWindows()) {
+  for (const win of import_electron7.BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send(LIFECYCLE_CHANGE_CHANNEL, state);
     }
@@ -15413,11 +15592,11 @@ function registerStateIpc() {
     const partial2 = parseSingleSnapshot(event.filename, event.snapshot);
     broadcastLifecycleChange(partial2);
   });
-  import_electron5.ipcMain.handle(LIFECYCLE_GET_CHANNEL, async () => {
+  import_electron7.ipcMain.handle(LIFECYCLE_GET_CHANNEL, async () => {
     const snapshots = watcher.getCurrentState();
     return parseLifecycleState(snapshots);
   });
-  import_electron5.ipcMain.handle(
+  import_electron7.ipcMain.handle(
     LIFECYCLE_START_CHANNEL,
     async (_event, stateDir) => {
       if (typeof stateDir !== "string" || stateDir.trim() === "") {
@@ -15432,13 +15611,13 @@ function registerStateIpc() {
       }
     }
   );
-  import_electron5.ipcMain.handle(LIFECYCLE_STOP_CHANNEL, async () => {
+  import_electron7.ipcMain.handle(LIFECYCLE_STOP_CHANNEL, async () => {
     watcher.stop();
   });
 }
 
 // Electron/src/main/ipc/stream-bridge-ipc.ts
-var import_electron6 = require("electron");
+var import_electron8 = require("electron");
 
 // Electron/src/main/cli/stream-parser.ts
 var readline2 = __toESM(require("readline"), 1);
@@ -15467,7 +15646,6 @@ var STREAM_TOOL_CALL_CHANNEL = "omx:stream-tool-call";
 var STREAM_TOOL_RESULT_CHANNEL = "omx:stream-tool-result";
 var STREAM_INTERLUDE_CHANNEL = "omx:stream-interlude";
 var STREAM_DONE_CHANNEL = "omx:stream-done";
-var STREAM_ERROR_CHANNEL = "omx:stream-error";
 function parseStreamLine(raw) {
   const line = raw.trim();
   if (!line) return null;
@@ -15610,7 +15788,8 @@ var CodexStreamParser = class {
         }
         break;
       }
-      case "thread.completed": {
+      case "thread.completed":
+      case "turn.completed": {
         const envelope = { type: "done", exitCode: 0 };
         this.callbacks.onDone?.(envelope);
         break;
@@ -15641,7 +15820,7 @@ function createCodexStreamParser(child, callbacks) {
 }
 
 // Electron/src/main/core/execute-command.ts
-var import_child_process2 = require("child_process");
+var import_child_process3 = require("child_process");
 var readline3 = __toESM(require("readline"), 1);
 function executeCommand(opts) {
   const {
@@ -15653,7 +15832,8 @@ function executeCommand(opts) {
     onEnvelope,
     onRawLine,
     onError,
-    omxBin = "omx"
+    omxBin = "omx",
+    extraEnv
   } = opts;
   const spawnArgs = [command];
   if (provider) {
@@ -15666,11 +15846,12 @@ function executeCommand(opts) {
   }
   spawnArgs.push(...args);
   const quoteWinArg = (a) => /[ \t"]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
-  const spawnOpts = { stdio: ["ignore", "pipe", "pipe"] };
-  const child = process.platform === "win32" ? (0, import_child_process2.spawn)([omxBin, ...spawnArgs].map(quoteWinArg).join(" "), [], {
+  const envOverride = extraEnv ? { env: { ...process.env, ...extraEnv } } : {};
+  const spawnOpts = { stdio: ["ignore", "pipe", "pipe"], ...envOverride };
+  const child = process.platform === "win32" ? (0, import_child_process3.spawn)([omxBin, ...spawnArgs].map(quoteWinArg).join(" "), [], {
     shell: true,
     ...spawnOpts
-  }) : (0, import_child_process2.spawn)(omxBin, spawnArgs, { shell: false, ...spawnOpts });
+  }) : (0, import_child_process3.spawn)(omxBin, spawnArgs, { shell: false, ...spawnOpts });
   const rl = readline3.createInterface({
     input: child.stdout,
     crlfDelay: Infinity
@@ -15711,20 +15892,224 @@ function executeCommand(opts) {
   return { child, exitCode };
 }
 
+// Electron/src/main/logs/session-logger.ts
+var fs2 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
+function nowString() {
+  const d = /* @__PURE__ */ new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function makeFilename() {
+  const d = /* @__PURE__ */ new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(2);
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const min = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+  return `${yy}${mm}${dd}-${hh}${min}${ss}.log`;
+}
+function extractMdPaths(args) {
+  const raw = typeof args === "string" ? args : JSON.stringify(args ?? "");
+  const results = [];
+  const re = /["']([^"'\s]+\.md)["']/gi;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    results.push(m[1]);
+  }
+  const re2 = /:\s*"([^"]+\.md)"/gi;
+  while ((m = re2.exec(raw)) !== null) {
+    if (!results.includes(m[1])) results.push(m[1]);
+  }
+  return results;
+}
+function mdCategory(filePath) {
+  const norm = filePath.replace(/\\/g, "/").toLowerCase();
+  if (norm.includes("/agents/")) return "agents";
+  if (norm.includes("/prompts/")) return "prompts";
+  if (norm.includes("/skills/")) return "skills";
+  return "other";
+}
+function isAssetMdPath(filePath) {
+  const norm = filePath.replace(/\\/g, "/").toLowerCase();
+  if (!norm.endsWith(".md")) return false;
+  return norm.includes("/agents/") || norm.includes("/prompts/") || norm.includes("/skills/");
+}
+var SessionLogger = class {
+  /** 현재 세션의 로그 파일 절대 경로 (init 후 설정) */
+  logPath = null;
+  /** STREAM_DONE 까지 누적되는 LLM 응답 버퍼 */
+  responseBuffer = "";
+  // ─── 초기화 ────────────────────────────────────────────────────────────────
+  /**
+   * 세션 로거를 초기화한다.
+   * `app.whenReady()` 이후, `registerIpc()` 호출 전에 실행한다.
+   *
+   * @param logDir  로그 디렉터리 절대 경로 (없으면 자동 생성)
+   */
+  init(logDir) {
+    if (!fs2.existsSync(logDir)) {
+      fs2.mkdirSync(logDir, { recursive: true });
+    }
+    this.logPath = path3.join(logDir, makeFilename());
+    this.append("=== OMX Desktop Agent \u2014 Session Start ===");
+  }
+  /** 현재 로그 파일 경로를 반환한다 (init 전이면 null). */
+  getLogPath() {
+    return this.logPath;
+  }
+  // ─── 내부 기록 ─────────────────────────────────────────────────────────────
+  append(line) {
+    if (!this.logPath) return;
+    try {
+      fs2.appendFileSync(this.logPath, `[${nowString()}] ${line}
+`, "utf8");
+    } catch {
+    }
+  }
+  // ─── 공개 로그 메서드 ──────────────────────────────────────────────────────
+  /**
+   * LLM에 전달되는 사용자 요청 메시지를 기록한다.
+   * 동시에 이전 응답 버퍼를 초기화하여 새 대화 라운드를 시작한다.
+   */
+  logLlmRequest(text, model) {
+    this.responseBuffer = "";
+    const modelTag = model ? ` (model: ${model})` : "";
+    this.append(`[REQUEST${modelTag}] ${text}`);
+  }
+  /**
+   * LLM 응답 토큰을 버퍼에 누적한다.
+   * `flushLlmResponse()` 호출 전까지 파일에 기록되지 않는다.
+   */
+  logLlmResponseToken(token) {
+    this.responseBuffer += token;
+  }
+  /**
+   * 누적된 LLM 응답 버퍼를 파일에 기록하고 버퍼를 비운다.
+   * STREAM_DONE 이벤트 발생 시 호출한다.
+   */
+  flushLlmResponse() {
+    if (!this.responseBuffer) return;
+    const charCount = this.responseBuffer.length;
+    this.append(`[RESPONSE] (${charCount} chars)
+${this.responseBuffer}`);
+    this.responseBuffer = "";
+  }
+  /**
+   * 도구 호출 이벤트를 기록한다.
+   * agents / prompts / skills 내 .md 파일 호출은 [MD_CALL] 태그로 분류한다.
+   */
+  logToolCall(toolName, args) {
+    const mdPaths = extractMdPaths(args);
+    if (mdPaths.length > 0) {
+      for (const mdPath of mdPaths) {
+        if (isAssetMdPath(mdPath)) {
+          const filename = path3.basename(mdPath);
+          const category = mdCategory(mdPath);
+          this.append(
+            `[MD_CALL] tool=${toolName} | file=${filename} | category=${category} | path=${mdPath}`
+          );
+        } else {
+          this.append(`[TOOL] ${toolName}(md: ${mdPath})`);
+        }
+      }
+      return;
+    }
+    const argsPreview = JSON.stringify(args ?? null).slice(0, 300);
+    this.append(`[TOOL] ${toolName}(${argsPreview})`);
+  }
+  /**
+   * 대화창에 표시되는 시스템 메시지를 기록한다.
+   * (STREAM_ERROR_CHANNEL 의 onRawLine / onError 경로)
+   */
+  logSystemMessage(message) {
+    this.append(`[SYSTEM] ${message}`);
+  }
+  /**
+   * 스트림/파이프라인 에러를 기록한다.
+   */
+  logError(message) {
+    this.append(`[ERROR] ${message}`);
+  }
+};
+var sessionLogger = new SessionLogger();
+
 // Electron/src/main/ipc/stream-bridge-ipc.ts
 var AGENT_STREAM_START_CHANNEL = "omx:agent-stream:start";
 var AGENT_STREAM_STOP_CHANNEL = "omx:agent-stream:stop";
 var _activeSession = null;
+var _geminiAbortController = null;
 function broadcastToRenderers2(channel, payload) {
-  for (const win of import_electron6.BrowserWindow.getAllWindows()) {
+  for (const win of import_electron8.BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send(channel, payload);
     }
   }
 }
+async function streamGeminiDirect(model, apiKey, prompt, signal) {
+  const url2 = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+  try {
+    const response = await fetch(url2, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }]
+      }),
+      signal
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      sessionLogger.logError(`Gemini API error ${response.status}: ${errText}`);
+      broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+    const reader = response.body?.getReader();
+    if (!reader) {
+      broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (!data) continue;
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            sessionLogger.logLlmResponseToken(text);
+            broadcastToRenderers2(STREAM_TOKEN_CHANNEL, { text });
+          }
+        } catch {
+        }
+      }
+    }
+    sessionLogger.flushLlmResponse();
+    broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") return;
+    const msg = e instanceof Error ? e.message : String(e);
+    sessionLogger.logError(`Gemini stream error: ${msg}`);
+    broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+  } finally {
+    _geminiAbortController = null;
+  }
+}
 function startAgentStream(command, args, reasoningEffort = "standard", provider, model) {
   if (_activeSession) {
     stopAgentStream();
+  }
+  if (model !== "echo" && model !== "echo-reverse") {
+    sessionLogger.logLlmRequest(args[0] ?? "", model);
   }
   if (model === "echo" || model === "echo-reverse") {
     const inputText = args[0] ?? "";
@@ -15741,6 +16126,19 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
     }, 20);
     return;
   }
+  const isGemini = typeof model === "string" && model.startsWith("gemini-") || provider === "gemini";
+  if (isGemini) {
+    const apiKey = loadGeminiApiKey();
+    if (!apiKey) {
+      sessionLogger.logError("GEMINI_API_KEY not configured");
+      broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+    const abort = new AbortController();
+    _geminiAbortController = abort;
+    void streamGeminiDirect(model ?? "gemini-2.5-flash", apiKey, args[0] ?? "", abort.signal);
+    return;
+  }
   if (command === "exec") {
     const modelArgs = model && model !== "auto" ? ["--model", model] : [];
     const execArgs = ["--json", "--ephemeral", "--skip-git-repo-check", "-C", ".", ...modelArgs, ...args];
@@ -15754,46 +16152,67 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
       // onRawLine 미제공: execute-command의 StreamEnvelope 필터에서 걸린
       // codex 이벤트(VALID_STREAM_TYPES 미등록)를 에러로 브로드캐스트하지 않기 위함
       onError: (errText) => {
-        broadcastToRenderers2(STREAM_ERROR_CHANNEL, { type: "error", message: errText });
+        sessionLogger.logSystemMessage(errText);
       }
     });
     const codexParser = createCodexStreamParser(execHandle.child, {
       onAgentInit: (e) => broadcastToRenderers2("omx:stream-agent-init", e),
       onThinkingToken: (e) => broadcastToRenderers2(STREAM_THINKING_CHANNEL, e),
-      onContentToken: (e) => broadcastToRenderers2(STREAM_TOKEN_CHANNEL, e),
-      onToolCall: (e) => broadcastToRenderers2(STREAM_TOOL_CALL_CHANNEL, e),
+      onContentToken: (e) => {
+        sessionLogger.logLlmResponseToken(e.text);
+        broadcastToRenderers2(STREAM_TOKEN_CHANNEL, e);
+      },
+      onToolCall: (e) => {
+        sessionLogger.logToolCall(e.toolName, e.args);
+        broadcastToRenderers2(STREAM_TOOL_CALL_CHANNEL, e);
+      },
       onToolResult: (e) => broadcastToRenderers2(STREAM_TOOL_RESULT_CHANNEL, e),
       onInterlude: (e) => broadcastToRenderers2(STREAM_INTERLUDE_CHANNEL, e),
       onDone: (e) => {
+        sessionLogger.flushLlmResponse();
         broadcastToRenderers2(STREAM_DONE_CHANNEL, e);
         _activeSession = null;
       },
-      onStreamError: (e) => broadcastToRenderers2(STREAM_ERROR_CHANNEL, e),
+      onStreamError: (e) => {
+        sessionLogger.logError(e.message);
+      },
       onRawLine: (line) => {
-        broadcastToRenderers2(STREAM_ERROR_CHANNEL, { type: "error", message: line });
+        sessionLogger.logSystemMessage(line);
       }
     });
     _activeSession = { handle: execHandle, parser: codexParser };
     execHandle.exitCode.then(() => {
-      _activeSession = null;
+      if (_activeSession) {
+        sessionLogger.flushLlmResponse();
+        broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+        _activeSession = null;
+      }
     }).catch(() => {
-      _activeSession = null;
+      if (_activeSession) {
+        sessionLogger.flushLlmResponse();
+        broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+        _activeSession = null;
+      }
     });
     return;
   }
+  const isGeminiAsk = provider === "gemini" || typeof model === "string" && model.startsWith("gemini-");
+  const geminiKeyAsk = isGeminiAsk ? loadGeminiApiKey() : null;
+  const askExtraEnv = geminiKeyAsk ? { GEMINI_API_KEY: geminiKeyAsk } : void 0;
   const handle = executeCommand({
     command,
     // ask 커맨드는 provider가 command 바로 뒤에 필요: omx ask <provider> --stream-json ...
     // 지정 없으면 "claude" 기본값 사용
-    provider: command === "ask" ? provider ?? "claude" : provider,
+    provider: command === "ask" ? isGeminiAsk ? "gemini" : provider ?? "claude" : provider,
     args,
     streamJson: true,
     reasoningEffort,
+    extraEnv: askExtraEnv,
     onRawLine: (line) => {
-      broadcastToRenderers2(STREAM_ERROR_CHANNEL, { type: "error", message: line });
+      sessionLogger.logSystemMessage(line);
     },
     onError: (errText) => {
-      broadcastToRenderers2(STREAM_ERROR_CHANNEL, { type: "error", message: errText });
+      sessionLogger.logSystemMessage(errText);
     }
   });
   const parser = createStreamParser(handle.child, {
@@ -15801,27 +16220,48 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
     // 사고 과정 → 전용 채널 (UI 오버레이 박스)
     onThinkingToken: (e) => broadcastToRenderers2(STREAM_THINKING_CHANNEL, e),
     // 결과 텍스트 → 메인 채팅 채널
-    onContentToken: (e) => broadcastToRenderers2(STREAM_TOKEN_CHANNEL, e),
-    onToolCall: (e) => broadcastToRenderers2(STREAM_TOOL_CALL_CHANNEL, e),
+    onContentToken: (e) => {
+      sessionLogger.logLlmResponseToken(e.text);
+      broadcastToRenderers2(STREAM_TOKEN_CHANNEL, e);
+    },
+    onToolCall: (e) => {
+      sessionLogger.logToolCall(e.toolName, e.args);
+      broadcastToRenderers2(STREAM_TOOL_CALL_CHANNEL, e);
+    },
     onToolResult: (e) => broadcastToRenderers2(STREAM_TOOL_RESULT_CHANNEL, e),
     onInterlude: (e) => broadcastToRenderers2(STREAM_INTERLUDE_CHANNEL, e),
     onDone: (e) => {
+      sessionLogger.flushLlmResponse();
       broadcastToRenderers2(STREAM_DONE_CHANNEL, e);
       _activeSession = null;
     },
-    onStreamError: (e) => broadcastToRenderers2(STREAM_ERROR_CHANNEL, e),
+    onStreamError: (e) => {
+      sessionLogger.logError(e.message);
+    },
     onRawLine: (line) => {
-      broadcastToRenderers2(STREAM_ERROR_CHANNEL, { type: "error", message: line });
+      sessionLogger.logSystemMessage(line);
     }
   });
   _activeSession = { handle, parser };
   handle.exitCode.then(() => {
-    _activeSession = null;
+    if (_activeSession) {
+      sessionLogger.flushLlmResponse();
+      broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+      _activeSession = null;
+    }
   }).catch(() => {
-    _activeSession = null;
+    if (_activeSession) {
+      sessionLogger.flushLlmResponse();
+      broadcastToRenderers2(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      _activeSession = null;
+    }
   });
 }
 function stopAgentStream() {
+  if (_geminiAbortController) {
+    _geminiAbortController.abort();
+    _geminiAbortController = null;
+  }
   if (!_activeSession) return;
   const { handle, parser } = _activeSession;
   _activeSession = null;
@@ -15829,7 +16269,7 @@ function stopAgentStream() {
   handle.child.kill("SIGTERM");
 }
 function registerStreamBridgeIpc() {
-  import_electron6.ipcMain.handle(
+  import_electron8.ipcMain.handle(
     AGENT_STREAM_START_CHANNEL,
     (_event, payload) => {
       const { command, args = [], reasoningEffort = "standard", provider, model } = payload;
@@ -15837,7 +16277,7 @@ function registerStreamBridgeIpc() {
       return { ok: true };
     }
   );
-  import_electron6.ipcMain.handle(AGENT_STREAM_STOP_CHANNEL, () => {
+  import_electron8.ipcMain.handle(AGENT_STREAM_STOP_CHANNEL, () => {
     stopAgentStream();
     return { ok: true };
   });
@@ -15845,16 +16285,17 @@ function registerStreamBridgeIpc() {
 
 // Electron/src/electron-main.ts
 var bundleDir = __dirname;
-var isDev = !import_electron7.app.isPackaged;
+var isDev = !import_electron9.app.isPackaged;
 function registerIpc() {
   registerCliIpc();
+  registerEnvIpc();
   registerInterludeIpc();
   registerStateIpc();
   registerStreamBridgeIpc();
   registerAdapterIpc();
 }
 async function createWindow() {
-  const win = new import_electron7.BrowserWindow({
+  const win = new import_electron9.BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 960,
@@ -15874,8 +16315,8 @@ async function createWindow() {
   }
   await win.loadFile(import_node_path.default.join(bundleDir, "renderer", "index.html"));
 }
-import_electron7.app.whenReady().then(async () => {
-  import_electron7.session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+import_electron9.app.whenReady().then(async () => {
+  import_electron9.session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const csp = isDev ? [
       "default-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173;",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' http://127.0.0.1:5173;",
@@ -15895,17 +16336,18 @@ import_electron7.app.whenReady().then(async () => {
       }
     });
   });
+  sessionLogger.init(import_node_path.default.join(import_electron9.app.getPath("userData"), "logs"));
   registerIpc();
   await createWindow();
-  import_electron7.app.on("activate", () => {
-    if (import_electron7.BrowserWindow.getAllWindows().length === 0) {
+  import_electron9.app.on("activate", () => {
+    if (import_electron9.BrowserWindow.getAllWindows().length === 0) {
       void createWindow();
     }
   });
 });
-import_electron7.app.on("window-all-closed", () => {
+import_electron9.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
-    import_electron7.app.quit();
+    import_electron9.app.quit();
   }
 });
 //# sourceMappingURL=main.cjs.map

@@ -7,8 +7,13 @@
 
 import { ipcMain, BrowserWindow } from "electron";
 import { runFullEnvCheck, type EnvStatus } from "../env/env-checker";
+import { saveGeminiApiKey, loadGeminiApiKey, clearGeminiApiKey } from "../services/gemini-key-store";
 
 let cachedStatus: EnvStatus | null = null;
+
+export const GEMINI_KEY_SAVE_CHANNEL = "omx:gemini-key:save";
+export const GEMINI_KEY_CLEAR_CHANNEL = "omx:gemini-key:clear";
+export const GEMINI_KEY_STATUS_CHANNEL = "omx:gemini-key:status";
 
 /**
  * IPC 채널 등록 — app ready 이후 main.ts에서 호출한다.
@@ -30,6 +35,24 @@ export function registerEnvIpc(): void {
     cachedStatus = null;
     cachedStatus = await runFullEnvCheck();
     return cachedStatus;
+  });
+
+  // Gemini API 키 저장
+  ipcMain.handle(GEMINI_KEY_SAVE_CHANNEL, (_event, key: string) => {
+    saveGeminiApiKey(key);
+    return { ok: true };
+  });
+
+  // Gemini API 키 삭제
+  ipcMain.handle(GEMINI_KEY_CLEAR_CHANNEL, () => {
+    clearGeminiApiKey();
+    return { ok: true };
+  });
+
+  // Gemini API 키 존재 여부 조회
+  ipcMain.handle(GEMINI_KEY_STATUS_CHANNEL, () => {
+    const key = loadGeminiApiKey();
+    return { available: key !== null && key.length > 0 };
   });
 }
 

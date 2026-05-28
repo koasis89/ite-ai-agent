@@ -42,8 +42,8 @@ export interface ExecuteCommandOptions {
   /** stderr 수신 콜백 */
   onError?: (errText: string) => void;
   /** omx CLI 실행 경로. 기본값: "omx" */
-  omxBin?: string;
-}
+  omxBin?: string;  /** 자식 프로세스에 주입할 추가 환경 변수. 예: { GEMINI_API_KEY: "..." } */
+  extraEnv?: Record<string, string>;}
 
 export interface ExecuteCommandHandle {
   /** 실행 중인 자식 프로세스 (강제 종료용) */
@@ -73,6 +73,7 @@ export function executeCommand(opts: ExecuteCommandOptions): ExecuteCommandHandl
     onRawLine,
     onError,
     omxBin = "omx",
+    extraEnv,
   } = opts;
 
   const spawnArgs: string[] = [command];
@@ -102,7 +103,10 @@ export function executeCommand(opts: ExecuteCommandOptions): ExecuteCommandHandl
 
   // stdin을 'ignore'로 닫아야 codex exec가 stdin 파이프 모드로 진입하지 않음
   // (Electron spawn 시 isTTY==false → codex가 stdin 대기 모드로 진입하는 것 방지)
-  const spawnOpts = { stdio: ["ignore", "pipe", "pipe"] as const };
+  const envOverride = extraEnv
+    ? { env: { ...process.env, ...extraEnv } as NodeJS.ProcessEnv }
+    : {};
+  const spawnOpts = { stdio: ["ignore", "pipe", "pipe"] as const, ...envOverride };
   const child = (
     process.platform === "win32"
       ? spawn([omxBin, ...spawnArgs].map(quoteWinArg).join(" "), [], {

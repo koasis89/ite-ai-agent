@@ -10,6 +10,7 @@
 
 import { spawn } from "child_process";
 import { z } from "zod";
+import { loadGeminiApiKey, isValidGeminiKeyFormat } from "../services/gemini-key-store";
 
 // ─── 타입 정의 ──────────────────────────────────────────────────────────────
 
@@ -175,4 +176,23 @@ export async function runFullEnvCheck(): Promise<EnvStatus> {
   if (!handshakeResult.ok) return handshakeResult;
 
   return { ok: true, code: "ok", version: versionResult.version };
+}
+
+/**
+ * Gemini API 키 유효성 확인 (선택적 단계)
+ * 키가 없으면 ok(사용 불가 안내)를 반환하고, 형식 이상이면 ok=false.
+ */
+export function verifyGeminiKey(): EnvStatus {
+  const key = loadGeminiApiKey();
+  if (!key) {
+    return { ok: true, code: "ok", message: "GEMINI_API_KEY 미설정 — Gemini 모델은 사용 불가" };
+  }
+  if (!isValidGeminiKeyFormat(key)) {
+    return {
+      ok: false,
+      code: "auth_missing",
+      message: "GEMINI_API_KEY 형식이 올바르지 않습니다 (AIzaSy... 39자 이상 필요)",
+    };
+  }
+  return { ok: true, code: "ok" };
 }

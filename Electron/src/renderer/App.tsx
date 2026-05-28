@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AdapterStatusBar from "./components/AdapterStatusBar";
+import { ApiKeySettings } from "./components/ApiKeySettings";
 import ChatContainer from "./components/ChatContainer";
 import { LifecycleDashboard } from "./components/LifecycleDashboard";
 
@@ -17,6 +18,14 @@ export default function App(): React.ReactElement {
   const [streamText, setStreamText] = useState("");
   const [streamErrors, setStreamErrors] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("echo");
+  const [geminiKeyAvailable, setGeminiKeyAvailable] = useState(false);
+
+  // Gemini 키 상태 초기 로드
+  useEffect(() => {
+    void window.electronAPI?.geminiKey?.getStatus().then((result) => {
+      setGeminiKeyAvailable(result?.available ?? false);
+    });
+  }, []);
 
   useEffect(() => {
     const api = window.electronAPI;
@@ -63,6 +72,9 @@ export default function App(): React.ReactElement {
 
       <main className="app-main">
         <section className="chat-pane">
+          {selectedModel.startsWith("gemini-") && !geminiKeyAvailable && (
+            <ApiKeySettings onKeySet={() => setGeminiKeyAvailable(true)} />
+          )}
           <ChatContainer
             initialMessages={[
               {
@@ -76,6 +88,7 @@ export default function App(): React.ReactElement {
             onModelChange={setSelectedModel}
             streamingText={streamText}
             streamErrors={streamErrors}
+            geminiKeyAvailable={geminiKeyAvailable}
           />
         </section>
         <LifecycleDashboard />
