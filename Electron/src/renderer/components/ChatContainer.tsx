@@ -185,15 +185,30 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     const text = inputText.trim();
     if (!text || activeInterlude) return;
 
-    const msg: Message = {
+    const newMsg: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: text,
     };
-    setMessages((prev) => [...prev, msg]);
+
+    const pendingStream = streamingText.trim();
+    if (pendingStream && pendingStream !== "Stream finished.") {
+      // 진행 중인 스트리밍 응답을 사용자 메시지보다 먼저 확정 (원자적 추가)
+      const assistantMsg: Message = {
+        id: `assistant-flush-${Date.now()}`,
+        role: "assistant",
+        content: pendingStream,
+      };
+      setMessages((prev) => [...prev, assistantMsg, newMsg]);
+      // useEffect의 중복 추가 방지: prevStreamingRef를 미리 비움
+      prevStreamingRef.current = "";
+    } else {
+      setMessages((prev) => [...prev, newMsg]);
+    }
+
     setInputText("");
     onSendMessage?.(text);
-  }, [inputText, activeInterlude, onSendMessage]);
+  }, [inputText, activeInterlude, onSendMessage, streamingText]);
 
   // ─── 인터뷰 모드 승인 제출 ────────────────────────────────────────────────
 

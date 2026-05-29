@@ -1,4 +1,4 @@
-# src/auth 모듈 분析
+# src/auth 모듈 분석
 
 ## 폴더 구조
 
@@ -57,7 +57,7 @@ hotswap.ts ─── readAuthConfig()   → config.ts  (rotation 모드 로딩)
 
 ---
 
-## 파일별 상세 분析
+## 파일별 상세 분석
 
 ---
 

@@ -1,8 +1,8 @@
-# src/runtime/ 모듈 분析
+# src/runtime/ 모듈 분석
 
 > 작성일: 2026-05  
 > 대상 경로: `src/runtime/`  
-> 분析 범위: 소스 파일 5개 + 테스트 파일 5개
+> 분석 범위: 소스 파일 5개 + 테스트 파일 5개
 
 ---
 
@@ -58,7 +58,7 @@ process-tree.ts ──► utils/platform-command.ts
 
 ---
 
-## 3. 파일별 상세 분析
+## 3. 파일별 상세 분석
 
 ### 3.1 `run-outcome.ts` — 실행 결과 계약 (핵심)
 
@@ -580,9 +580,9 @@ Unix에서 `detached: true`로 프로세스 그룹 생성 후 `process.kill(-pid
 
 ---
 
-## 9. 연관 분析 파일
+## 9. 연관 분석 파일
 
-| 모듈 | 분析 파일 |
+| 모듈 | 분석 파일 |
 |---|---|
 | `src/ralph/` | [ralph-module-analysis.md](./ralph-module-analysis.md) |
 | `src/ralplan/` | [ralplan-module-analysis.md](./ralplan-module-analysis.md) |

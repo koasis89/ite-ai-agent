@@ -171,7 +171,7 @@ omx <command> [subcommand] [args...]
 
 ---
 
-## 파일별 상세 분析
+## 파일별 상세 분석
 
 ### 1. `omx.ts` — Node CLI 부트스트랩
 

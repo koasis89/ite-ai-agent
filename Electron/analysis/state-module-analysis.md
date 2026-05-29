@@ -1,8 +1,8 @@
-# src/state/ 모듈 분析
+# src/state/ 모듈 분석
 
 > 작성일: 2026-05  
 > 대상 경로: `src/state/`  
-> 분析 범위: 소스 파일 6개 + `__tests__/` 7개
+> 분석 범위: 소스 파일 6개 + `__tests__/` 7개
 
 ---
 
@@ -58,7 +58,7 @@ MCP 호출 (state_read / state_write / state_clear / state_list_active / state_g
 
 ---
 
-## 3. 파일별 상세 분析
+## 3. 파일별 상세 분석
 
 ### 3.1 `paths.ts` — 경로 배럴
 
@@ -583,9 +583,9 @@ export function evaluatePreToolUseGate(
 
 ---
 
-## 10. 연관 분析 파일
+## 10. 연관 분석 파일
 
-| 모듈 | 분析 파일 |
+| 모듈 | 분석 파일 |
 |---|---|
 | `src/scripts/` | [scripts-module-analysis.md](./scripts-module-analysis.md) |
 | `src/runtime/` | [runtime-module-analysis.md](./runtime-module-analysis.md) |

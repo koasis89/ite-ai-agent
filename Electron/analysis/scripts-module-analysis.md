@@ -1,8 +1,8 @@
-# src/scripts/ 모듈 분析
+# src/scripts/ 모듈 분석
 
 > 작성일: 2026-05  
 > 대상 경로: `src/scripts/`  
-> 분析 범위: 최상위 스크립트 파일 30개 + `notify-hook/` 18개 + `eval/` 13개 + `__tests__/` 12개
+> 분석 범위: 최상위 스크립트 파일 30개 + `notify-hook/` 18개 + `eval/` 13개 + `__tests__/` 12개
 
 ---
 
@@ -80,7 +80,7 @@ src/scripts/
 
 ---
 
-## 3. 파일별 상세 분析
+## 3. 파일별 상세 분석
 
 ### 3.1 `codex-native-hook.ts` — Codex 네이티브 훅 메인 진입점
 
@@ -334,7 +334,7 @@ package.json version
 - `public-catalog.json` 출력 내용 일치 확인 (`assertDeepEqual`)
 - 하드코딩된 카운트 리터럴 금지 (`forbiddenCountLiterals`: `30`, `40`, `30+`)
 
-#### `prompt-inventory.ts` 분析 항목
+#### `prompt-inventory.ts` 분석 항목
 
 - 파일별 라인 수·추정 토큰 수
 - 절대 지시어(`MUST`, `NEVER`, `ALWAYS`, `ONLY` 등) 출현 수
@@ -666,9 +666,9 @@ deep-interview 진행 중에는 `yes`, `proceed` 등 자동 승인 입력을 차
 
 ---
 
-## 10. 연관 분析 파일
+## 10. 연관 분석 파일
 
-| 모듈 | 분析 파일 |
+| 모듈 | 분석 파일 |
 |---|---|
 | `src/runtime/` | [runtime-module-analysis.md](./runtime-module-analysis.md) |
 | `src/hooks/` | [hooks-module-analysis.md](./hooks-module-analysis.md) |

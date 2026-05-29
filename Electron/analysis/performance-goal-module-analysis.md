@@ -1,4 +1,4 @@
-# src/performance-goal 모듈 분析
+# src/performance-goal 모듈 분석
 
 ## 폴더 구조
 
@@ -100,7 +100,7 @@ omx performance-goal complete …
 
 ---
 
-## 파일별 상세 분析 — `artifacts.ts`
+## 파일별 상세 분석 — `artifacts.ts`
 
 ### 타입 정의
 

@@ -1,4 +1,4 @@
-# src/goal-workflows 모듈 분析
+# src/goal-workflows 모듈 분석
 
 ## 폴더 구조
 
@@ -42,7 +42,7 @@ src/goal-workflows/
 
 ---
 
-## 파일별 상세 분析
+## 파일별 상세 분석
 
 ---
 

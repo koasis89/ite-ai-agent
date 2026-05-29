@@ -25,6 +25,8 @@ var electronAPI = {
   onLifecycleChange: (callback) => on("omx:lifecycle-change", callback),
   startLifecycleWatcher: (stateDir) => import_electron.ipcRenderer.invoke("omx:lifecycle-start", stateDir),
   stopLifecycleWatcher: () => import_electron.ipcRenderer.invoke("omx:lifecycle-stop"),
+  getTodoList: () => import_electron.ipcRenderer.invoke("omx:todo-get"),
+  onTodoChange: (callback) => on("omx:todo-change", callback),
   onAdapterStatus: (callback) => on("omx:adapter-status", callback),
   probeAdapter: (target) => import_electron.ipcRenderer.invoke("omx:adapter-probe", target),
   geminiKey: {

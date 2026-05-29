@@ -17,6 +17,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { TaskTimeline } from "./TaskTimeline";
+import { TodoPanel } from "./TodoPanel";
 
 // ─── 타입 (contextBridge 경유) ────────────────────────────────────────────────
 
@@ -176,36 +177,60 @@ export const LifecycleDashboard: React.FC<LifecycleDashboardProps> = ({
         <div
           style={{
             flex: 1,
-            overflowY: "auto",
-            padding: "12px",
             display: "flex",
             flexDirection: "column",
-            gap: "12px",
+            overflow: "hidden",
           }}
         >
-          {/* 현재 상태 카드 */}
-          {lifecycle && (
-            <StatusCard lifecycle={lifecycle} theme={theme} />
-          )}
+          {/* 상단: 에이전트 상태 */}
+          <div
+            style={{
+              flex: "0 1 auto",
+              overflowY: "auto",
+              padding: "12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              borderBottom: "1px solid #e5e7eb",
+              minHeight: 0,
+            }}
+          >
+            {/* 현재 상태 카드 */}
+            {lifecycle && (
+              <StatusCard lifecycle={lifecycle} theme={theme} />
+            )}
 
-          {/* 감사 노트 말풍선 */}
-          {lifecycle?.audit && <AuditNoteBubble audit={lifecycle.audit} />}
+            {/* 감사 노트 말풍선 */}
+            {lifecycle?.audit && <AuditNoteBubble audit={lifecycle.audit} />}
 
-          {/* 타임라인 */}
-          <div style={{ marginTop: "8px" }}>
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "#9ca3af",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-                marginBottom: "8px",
-              }}
-            >
-              상태 이력
+            {/* 타임라인 */}
+            <div style={{ marginTop: "8px" }}>
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "#9ca3af",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginBottom: "8px",
+                }}
+              >
+                상태 이력
+              </div>
+              <TaskTimeline entries={history} />
             </div>
-            <TaskTimeline entries={history} />
+          </div>
+
+          {/* 하단: 할 일 목록 */}
+          <div
+            style={{
+              flex: "0 0 auto",
+              overflowY: "auto",
+              padding: "12px",
+              maxHeight: "220px",
+            }}
+          >
+            <TodoPanel />
           </div>
         </div>
       )}

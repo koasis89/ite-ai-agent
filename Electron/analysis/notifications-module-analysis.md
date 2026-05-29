@@ -1,4 +1,4 @@
-# src/notifications 모듈 분析
+# src/notifications 모듈 분석
 
 ## 폴더 구조
 
@@ -15,7 +15,7 @@ src/notifications/
 ├── notifier.ts            # 레거시 단순 알림 (데스크톱 + discord + telegram)
 ├── http-client.ts         # HTTP/HTTPS 클라이언트 (프록시·타임아웃 지원)
 ├── tmux.ts                # tmux 세션 탐지·pane 캡처·HUD 필터링
-├── tmux-detector.ts       # reply-listener용 pane 상호작용 (캡처·분析·주입)
+├── tmux-detector.ts       # reply-listener용 pane 상호작용 (캡처·분석·주입)
 ├── lifecycle-dedupe.ts    # 라이프사이클 알림 중복 방지 (지문 기반)
 ├── dispatch-cooldown.ts   # 팀 dispatch 알림 최소 간격 쿨다운
 ├── idle-cooldown.ts       # session-idle 알림 쿨다운 + tmux tail 지문
@@ -76,7 +76,7 @@ src/notifications/
 
 ---
 
-## 파일별 상세 분析
+## 파일별 상세 분석
 
 ---
 
@@ -367,7 +367,7 @@ sendWebhook(config, payload): Promise<NotificationResult>
 OMX HUD·스탯·브랜치명만 있는 줄을 필터링한다.
 
 ```
-파이프(|) 구분 세그먼트 분析:
+파이프(|) 구분 세그먼트 분석:
   - [OMX#...] — OMX 메타데이터
   - ralph:3/10, autopilot:running 등 — HUD 상태
   - feat/feature-name, HEAD → main 등 — 브랜치 메타데이터
@@ -387,7 +387,7 @@ OMX HUD·스탯·브랜치명만 있는 줄을 필터링한다.
 // pane 텍스트 캡처 (기본 15줄)
 capturePaneContent(paneId, lines?): string
 
-// Codex CLI 실행 여부·블로킹 상태 분析
+// Codex CLI 실행 여부·블로킹 상태 분석
 analyzePaneContent(content): PaneAnalysis {
   hasCodex, hasRateLimitMessage, isBlocked, confidence
 }

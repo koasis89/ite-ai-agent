@@ -37,6 +37,9 @@ const electronAPI = {
   startLifecycleWatcher: (stateDir: string) => ipcRenderer.invoke("omx:lifecycle-start", stateDir),
   stopLifecycleWatcher: () => ipcRenderer.invoke("omx:lifecycle-stop"),
 
+  getTodoList: () => ipcRenderer.invoke("omx:todo-get"),
+  onTodoChange: (callback: Listener) => on("omx:todo-change", callback),
+
   onAdapterStatus: (callback: Listener) => on("omx:adapter-status", callback),
   probeAdapter: (target: "openclaw" | "hermes") => ipcRenderer.invoke("omx:adapter-probe", target),
 

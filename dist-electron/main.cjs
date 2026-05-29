@@ -799,10 +799,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path5) {
-  if (!path5)
+function getElementAtPath(obj, path6) {
+  if (!path6)
     return obj;
-  return path5.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1211,11 +1211,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path5, issues) {
+function prefixIssues(path6, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path5);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -1362,16 +1362,16 @@ function flattenError(error51, mapper = (issue2) => issue2.message) {
 }
 function formatError(error51, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error52, path5 = []) => {
+  const processError = (error52, path6 = []) => {
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path5, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path6, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path6, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path6, ...issue2.path]);
       } else {
-        const fullpath = [...path5, ...issue2.path];
+        const fullpath = [...path6, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -1398,17 +1398,17 @@ function formatError(error51, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error51, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error52, path5 = []) => {
+  const processError = (error52, path6 = []) => {
     var _a3, _b;
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path5, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path6, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path6, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path6, ...issue2.path]);
       } else {
-        const fullpath = [...path5, ...issue2.path];
+        const fullpath = [...path6, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -1440,8 +1440,8 @@ function treeifyError(error51, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path5) {
+  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path6) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -14133,13 +14133,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path5 = ref.slice(1).split("/").filter(Boolean);
-  if (path5.length === 0) {
+  const path6 = ref.slice(1).split("/").filter(Boolean);
+  if (path6.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path5[0] === defsKey) {
-    const key = path5[1];
+  if (path6[0] === defsKey) {
+    const key = path6[1];
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -15208,6 +15208,8 @@ function broadcastToRenderers(channel, payload) {
 
 // Electron/src/main/ipc/state-ipc.ts
 var import_electron7 = require("electron");
+var os = __toESM(require("node:os"), 1);
+var path3 = __toESM(require("node:path"), 1);
 
 // Electron/src/main/state/state-watcher.ts
 var fs = __toESM(require("fs"), 1);
@@ -15579,6 +15581,9 @@ var LIFECYCLE_CHANGE_CHANNEL = "omx:lifecycle-change";
 var LIFECYCLE_GET_CHANNEL = "omx:lifecycle-get";
 var LIFECYCLE_START_CHANNEL = "omx:lifecycle-start";
 var LIFECYCLE_STOP_CHANNEL = "omx:lifecycle-stop";
+var TODO_GET_CHANNEL = "omx:todo-get";
+var TODO_CHANGE_CHANNEL = "omx:todo-change";
+var todoCache = { todoList: [] };
 function broadcastLifecycleChange(state) {
   for (const win of import_electron7.BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
@@ -15586,11 +15591,40 @@ function broadcastLifecycleChange(state) {
     }
   }
 }
-function registerStateIpc() {
+function broadcastTodoChange(state) {
+  for (const win of import_electron7.BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(TODO_CHANGE_CHANNEL, state);
+    }
+  }
+}
+function parseTodoSnapshot(snapshot) {
+  if (!snapshot) return { todoList: [] };
+  const raw = snapshot;
+  const list = Array.isArray(raw.todoList) ? raw.todoList : [];
+  const todoList = list.filter((item) => typeof item === "object" && item !== null).map((item) => ({
+    id: typeof item.id === "number" ? item.id : 0,
+    title: typeof item.title === "string" ? item.title : "",
+    status: ["not-started", "in-progress", "completed"].includes(item.status) ? item.status : "not-started"
+  }));
+  return { todoList };
+}
+function registerStateIpc(omxRoot) {
+  const root = omxRoot ?? path3.join(os.homedir(), ".omx");
+  const defaultStateDir = path3.join(root, "state");
   const watcher = getStateWatcher();
+  watcher.start(defaultStateDir);
   watcher.onChange((event) => {
-    const partial2 = parseSingleSnapshot(event.filename, event.snapshot);
-    broadcastLifecycleChange(partial2);
+    if (event.filename === "todo-state.json") {
+      todoCache = parseTodoSnapshot(event.snapshot);
+      broadcastTodoChange(todoCache);
+    } else {
+      const partial2 = parseSingleSnapshot(event.filename, event.snapshot);
+      broadcastLifecycleChange(partial2);
+    }
+  });
+  import_electron7.ipcMain.handle(TODO_GET_CHANNEL, async () => {
+    return todoCache;
   });
   import_electron7.ipcMain.handle(LIFECYCLE_GET_CHANNEL, async () => {
     const snapshots = watcher.getCurrentState();
@@ -15894,7 +15928,7 @@ function executeCommand(opts) {
 
 // Electron/src/main/logs/session-logger.ts
 var fs2 = __toESM(require("fs"), 1);
-var path3 = __toESM(require("path"), 1);
+var path4 = __toESM(require("path"), 1);
 function nowString() {
   const d = /* @__PURE__ */ new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -15953,7 +15987,7 @@ var SessionLogger = class {
     if (!fs2.existsSync(logDir)) {
       fs2.mkdirSync(logDir, { recursive: true });
     }
-    this.logPath = path3.join(logDir, makeFilename());
+    this.logPath = path4.join(logDir, makeFilename());
     this.append("=== OMX Desktop Agent \u2014 Session Start ===");
   }
   /** 현재 로그 파일 경로를 반환한다 (init 전이면 null). */
@@ -16006,7 +16040,7 @@ ${this.responseBuffer}`);
     if (mdPaths.length > 0) {
       for (const mdPath of mdPaths) {
         if (isAssetMdPath(mdPath)) {
-          const filename = path3.basename(mdPath);
+          const filename = path4.basename(mdPath);
           const category = mdCategory(mdPath);
           this.append(
             `[MD_CALL] tool=${toolName} | file=${filename} | category=${category} | path=${mdPath}`
