@@ -15208,6 +15208,7 @@ function broadcastToRenderers(channel, payload) {
 
 // Electron/src/main/ipc/state-ipc.ts
 var import_electron7 = require("electron");
+var fs2 = __toESM(require("node:fs"), 1);
 var os = __toESM(require("node:os"), 1);
 var path3 = __toESM(require("node:path"), 1);
 
@@ -15609,15 +15610,44 @@ function parseTodoSnapshot(snapshot) {
   }));
   return { todoList };
 }
+function sanitizeTodoState(state) {
+  return {
+    todoList: (state.todoList ?? []).map((item) => ({
+      id: typeof item.id === "number" ? item.id : 0,
+      title: typeof item.title === "string" ? item.title : "",
+      status: ["not-started", "in-progress", "completed"].includes(item.status) ? item.status : "not-started"
+    }))
+  };
+}
+function pushTodoState(state) {
+  todoCache = sanitizeTodoState(state);
+  broadcastTodoChange(todoCache);
+}
+function isTodoStateFile(filename) {
+  return filename === "todo-state.json" || /^todo.*-state\.json$/i.test(filename);
+}
+function resolveDefaultOmxRoot() {
+  const cwdOmx = path3.join(process.cwd(), ".omx");
+  if (fs2.existsSync(path3.join(cwdOmx, "state"))) {
+    return cwdOmx;
+  }
+  return path3.join(os.homedir(), ".omx");
+}
 function registerStateIpc(omxRoot) {
-  const root = omxRoot ?? path3.join(os.homedir(), ".omx");
+  const root = omxRoot ?? resolveDefaultOmxRoot();
   const defaultStateDir = path3.join(root, "state");
   const watcher = getStateWatcher();
   watcher.start(defaultStateDir);
+  const initialSnapshots = watcher.getCurrentState();
+  for (const [filename, snapshot] of initialSnapshots.entries()) {
+    if (isTodoStateFile(filename)) {
+      todoCache = parseTodoSnapshot(snapshot);
+      break;
+    }
+  }
   watcher.onChange((event) => {
-    if (event.filename === "todo-state.json") {
-      todoCache = parseTodoSnapshot(event.snapshot);
-      broadcastTodoChange(todoCache);
+    if (isTodoStateFile(event.filename)) {
+      pushTodoState(parseTodoSnapshot(event.snapshot));
     } else {
       const partial2 = parseSingleSnapshot(event.filename, event.snapshot);
       broadcastLifecycleChange(partial2);
@@ -15822,6 +15852,15 @@ var CodexStreamParser = class {
         }
         break;
       }
+      case "item.started": {
+        const item = ev["item"];
+        if (!item) break;
+        const toolCall = this._mapItemStartedToToolCall(item);
+        if (toolCall) {
+          this.callbacks.onToolCall?.(toolCall);
+        }
+        break;
+      }
       case "thread.completed":
       case "turn.completed": {
         const envelope = { type: "done", exitCode: 0 };
@@ -15845,6 +15884,33 @@ var CodexStreamParser = class {
       default:
         break;
     }
+  }
+  _parseMaybeJson(value) {
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return value;
+    }
+  }
+  _mapItemStartedToToolCall(item) {
+    const itemType = String(item["type"] ?? "");
+    const isToolCallType = itemType === "function_call" || itemType === "tool_call" || itemType === "mcp_tool_call";
+    if (!isToolCallType) return null;
+    const toolNameRaw = item["name"] ?? item["tool_name"];
+    const toolName = typeof toolNameRaw === "string" ? toolNameRaw : "";
+    if (!toolName) return null;
+    const callIdRaw = item["call_id"] ?? item["id"] ?? `call-${Date.now()}`;
+    const callId = String(callIdRaw);
+    const argsRaw = item["arguments"] ?? item["args"] ?? item["input"] ?? item["parameters"] ?? {};
+    return {
+      type: "tool_call",
+      toolName,
+      callId,
+      args: this._parseMaybeJson(argsRaw)
+    };
   }
 };
 function createCodexStreamParser(child, callbacks) {
@@ -15927,7 +15993,7 @@ function executeCommand(opts) {
 }
 
 // Electron/src/main/logs/session-logger.ts
-var fs2 = __toESM(require("fs"), 1);
+var fs3 = __toESM(require("fs"), 1);
 var path4 = __toESM(require("path"), 1);
 function nowString() {
   const d = /* @__PURE__ */ new Date();
@@ -15984,8 +16050,8 @@ var SessionLogger = class {
    * @param logDir  로그 디렉터리 절대 경로 (없으면 자동 생성)
    */
   init(logDir) {
-    if (!fs2.existsSync(logDir)) {
-      fs2.mkdirSync(logDir, { recursive: true });
+    if (!fs3.existsSync(logDir)) {
+      fs3.mkdirSync(logDir, { recursive: true });
     }
     this.logPath = path4.join(logDir, makeFilename());
     this.append("=== OMX Desktop Agent \u2014 Session Start ===");
@@ -15998,7 +16064,7 @@ var SessionLogger = class {
   append(line) {
     if (!this.logPath) return;
     try {
-      fs2.appendFileSync(this.logPath, `[${nowString()}] ${line}
+      fs3.appendFileSync(this.logPath, `[${nowString()}] ${line}
 `, "utf8");
     } catch {
     }
@@ -16080,6 +16146,62 @@ function broadcastToRenderers2(channel, payload) {
     if (!win.isDestroyed()) {
       win.webContents.send(channel, payload);
     }
+  }
+}
+function parseMaybeJson(value) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+function sanitizeTodoStatus(status) {
+  if (status === "in-progress" || status === "completed" || status === "not-started") {
+    return status;
+  }
+  return "not-started";
+}
+function normalizeTodoState(candidate) {
+  if (!candidate || typeof candidate !== "object") return null;
+  const raw = candidate;
+  if (!Array.isArray(raw.todoList)) return null;
+  const todoList = raw.todoList.filter((item) => typeof item === "object" && item !== null).map((item, index) => {
+    const idRaw = item.id;
+    const id = typeof idRaw === "number" ? idRaw : typeof idRaw === "string" ? Number.parseInt(idRaw, 10) : index + 1;
+    return {
+      id: Number.isFinite(id) ? id : index + 1,
+      title: typeof item.title === "string" ? item.title : "",
+      status: sanitizeTodoStatus(item.status)
+    };
+  });
+  return { todoList };
+}
+function extractTodoStateFromToolCall(toolName, args) {
+  if (!toolName.toLowerCase().includes("manage_todo_list")) {
+    return null;
+  }
+  const parsedArgs = parseMaybeJson(args);
+  const asObj = parsedArgs && typeof parsedArgs === "object" ? parsedArgs : null;
+  const candidates = [
+    parsedArgs,
+    asObj?.parameters,
+    asObj?.input,
+    asObj?.arguments,
+    asObj?.payload
+  ];
+  for (const candidate of candidates) {
+    const todo = normalizeTodoState(parseMaybeJson(candidate));
+    if (todo) return todo;
+  }
+  return null;
+}
+function applyTodoUpdateFromToolCall(toolName, args) {
+  const todoState = extractTodoStateFromToolCall(toolName, args);
+  if (todoState) {
+    pushTodoState(todoState);
   }
 }
 async function streamGeminiDirect(model, apiKey, prompt, signal) {
@@ -16198,6 +16320,7 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
       },
       onToolCall: (e) => {
         sessionLogger.logToolCall(e.toolName, e.args);
+        applyTodoUpdateFromToolCall(e.toolName, e.args);
         broadcastToRenderers2(STREAM_TOOL_CALL_CHANNEL, e);
       },
       onToolResult: (e) => broadcastToRenderers2(STREAM_TOOL_RESULT_CHANNEL, e),
@@ -16260,6 +16383,7 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
     },
     onToolCall: (e) => {
       sessionLogger.logToolCall(e.toolName, e.args);
+      applyTodoUpdateFromToolCall(e.toolName, e.args);
       broadcastToRenderers2(STREAM_TOOL_CALL_CHANNEL, e);
     },
     onToolResult: (e) => broadcastToRenderers2(STREAM_TOOL_RESULT_CHANNEL, e),
@@ -16296,17 +16420,27 @@ function stopAgentStream() {
     _geminiAbortController.abort();
     _geminiAbortController = null;
   }
-  if (!_activeSession) return;
+  if (!_activeSession) {
+    broadcastToRenderers2("omx:lifecycle-change", { status: "idle", mergedModes: [], updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    return;
+  }
   const { handle, parser } = _activeSession;
   _activeSession = null;
   parser.detach();
   handle.child.kill("SIGTERM");
+  broadcastToRenderers2("omx:lifecycle-change", { status: "idle", mergedModes: [], updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
 }
 function registerStreamBridgeIpc() {
   import_electron8.ipcMain.handle(
     AGENT_STREAM_START_CHANNEL,
     (_event, payload) => {
       const { command, args = [], reasoningEffort = "standard", provider, model } = payload;
+      broadcastToRenderers2("omx:lifecycle-change", {
+        status: "running",
+        activeMode: command,
+        mergedModes: [command],
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
       startAgentStream(command, args, reasoningEffort, provider, model);
       return { ok: true };
     }

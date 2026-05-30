@@ -44,6 +44,7 @@ declare global {
       onLifecycleChange?: (cb: (state: Partial<LifecycleState>) => void) => () => void;
       startLifecycleWatcher?: (stateDir: string) => Promise<{ ok: boolean; error?: string }>;
       stopLifecycleWatcher?: () => Promise<void>;
+      onStreamDone?: (cb: (e: { type?: string; exitCode?: number }) => void) => () => void;
     };
   }
 }
@@ -120,9 +121,27 @@ export const LifecycleDashboard: React.FC<LifecycleDashboardProps> = ({
       });
     }
 
+    // 스트림 완료 후 lifecycle 상태 동기화 (running → finished/failed)
+    const streamDoneUnsub = api.onStreamDone?.((e) => {
+      const doneStatus: LifecycleState["status"] =
+        (e?.exitCode ?? 0) === 0 ? "finished" : "failed";
+      setLifecycle((prev) => ({
+        status: "idle" as LifecycleState["status"],
+        mergedModes: [],
+        updatedAt: new Date().toISOString(),
+        ...prev,
+        status: doneStatus,
+      } as LifecycleState));
+      setHistory((prev) => [
+        ...prev.slice(-49),
+        { status: doneStatus, updatedAt: new Date().toISOString() },
+      ]);
+    });
+
     return () => {
       unsubRef.current?.();
       unsubRef.current = null;
+      streamDoneUnsub?.();
       if (stateDir && api.stopLifecycleWatcher) {
         api.stopLifecycleWatcher().catch(console.error);
       }

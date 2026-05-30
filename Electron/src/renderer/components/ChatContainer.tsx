@@ -17,7 +17,102 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ModelSelector } from "./ModelSelector";
+
+// ─── 마크다운 메시지 버블 ────────────────────────────────────────────────────
+
+const MdBubble: React.FC<{ content: string }> = ({ content }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    components={{
+      // 코드 블록 스타일
+      code({ className, children, ...props }) {
+        const isBlock = className?.includes("language-");
+        return isBlock ? (
+          <code
+            className={className}
+            style={{
+              display: "block",
+              background: "#1e1e1e",
+              color: "#d4d4d4",
+              padding: "10px 14px",
+              borderRadius: "6px",
+              fontFamily: '"Fira Code", "Cascadia Code", Consolas, monospace',
+              fontSize: "0.82rem",
+              overflowX: "auto",
+              whiteSpace: "pre",
+              margin: "8px 0",
+            }}
+            {...props}
+          >
+            {children}
+          </code>
+        ) : (
+          <code
+            style={{
+              background: "#e5e7eb",
+              padding: "2px 5px",
+              borderRadius: "3px",
+              fontFamily: '"Fira Code", Consolas, monospace',
+              fontSize: "0.82rem",
+            }}
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      },
+      pre({ children }) {
+        return <pre style={{ margin: 0 }}>{children}</pre>;
+      },
+      // 헤더 스타일
+      h1: ({ children }) => <h1 style={{ fontSize: "1.2rem", margin: "10px 0 6px", fontWeight: 700 }}>{children}</h1>,
+      h2: ({ children }) => <h2 style={{ fontSize: "1.05rem", margin: "8px 0 4px", fontWeight: 600 }}>{children}</h2>,
+      h3: ({ children }) => <h3 style={{ fontSize: "0.95rem", margin: "6px 0 3px", fontWeight: 600 }}>{children}</h3>,
+      // 단락 여백
+      p: ({ children }) => <p style={{ margin: "4px 0", lineHeight: 1.6 }}>{children}</p>,
+      // 리스트
+      ul: ({ children }) => <ul style={{ paddingLeft: "18px", margin: "4px 0" }}>{children}</ul>,
+      ol: ({ children }) => <ol style={{ paddingLeft: "18px", margin: "4px 0" }}>{children}</ol>,
+      li: ({ children }) => <li style={{ margin: "2px 0" }}>{children}</li>,
+      // 인용
+      blockquote: ({ children }) => (
+        <blockquote
+          style={{
+            borderLeft: "3px solid #9ca3af",
+            margin: "6px 0",
+            paddingLeft: "10px",
+            color: "#6b7280",
+          }}
+        >
+          {children}
+        </blockquote>
+      ),
+      // 링크
+      a: ({ href, children }) => (
+        <a href={href} style={{ color: "#2563eb", textDecoration: "underline" }}>
+          {children}
+        </a>
+      ),
+      // 구분선
+      hr: () => <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />,
+      // 테이블 (remark-gfm)
+      table: ({ children }) => (
+        <table style={{ borderCollapse: "collapse", width: "100%", margin: "6px 0", fontSize: "0.85rem" }}>{children}</table>
+      ),
+      th: ({ children }) => (
+        <th style={{ border: "1px solid #d1d5db", padding: "5px 8px", background: "#f9fafb", fontWeight: 600 }}>{children}</th>
+      ),
+      td: ({ children }) => (
+        <td style={{ border: "1px solid #d1d5db", padding: "5px 8px" }}>{children}</td>
+      ),
+    }}
+  >
+    {content}
+  </ReactMarkdown>
+);
 
 // ─── IPC 타입 (Electron contextBridge 경유) ──────────────────────────────────
 
@@ -25,6 +120,10 @@ import { ModelSelector } from "./ModelSelector";
 declare global {
   interface Window {
     electronAPI: {
+      onStreamToolCall?: (
+        callback: (payload: { toolName?: string; args?: unknown; callId?: string }) => void,
+      ) => () => void;
+      onStreamDone?: (callback: (payload: { type?: string; exitCode?: number }) => void) => () => void;
       onInterludeStart: (
         callback: (payload: InterludePayload) => void,
       ) => () => void;
@@ -76,6 +175,16 @@ interface Message {
   content: string;
 }
 
+interface ContextAttachment {
+  id: string;
+  name: string;
+  content: string;
+  truncated: boolean;
+}
+
+const MAX_CONTEXT_CHARS = 4000;
+const TOOL_ARGS_PREVIEW_CHARS = 120;
+
 interface ChatContainerProps {
   /** 초기 메시지 목록 (스토어 연동 시 대체 가능) */
   initialMessages?: Message[];
@@ -109,6 +218,13 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   // ─── 상태 ─────────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputText, setInputText] = useState("");
+  const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
+  const [lastToolCallDebug, setLastToolCallDebug] = useState<{
+    toolName: string;
+    argsPreview: string;
+    isTodoTool: boolean;
+    at: string;
+  } | null>(null);
 
   /** 현재 활성 인터류드 페이로드 — null이면 일반 채팅 모드 */
   const [activeInterlude, setActiveInterlude] = useState<InterludePayload | null>(null);
@@ -121,6 +237,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
   const interviewInputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const contextFileInputRef = useRef<HTMLInputElement>(null);
   /** 직전 streamingText 값 추적 — 비워질 때 assistant 메시지로 확정 */
   const prevStreamingRef = useRef("");
 
@@ -137,6 +254,41 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
     prevStreamingRef.current = streamingText;
   }, [streamingText]);
+
+  // ─── 스트림 tool_call 디버그 표시 ─────────────────────────────────────────
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    const toolCallUnsub = api.onStreamToolCall?.((payload) => {
+      const toolName = (payload?.toolName ?? "unknown").trim() || "unknown";
+      const isTodoTool = toolName.toLowerCase().includes("manage_todo_list");
+      const rawArgs =
+        typeof payload?.args === "string"
+          ? payload.args
+          : JSON.stringify(payload?.args ?? {});
+      const argsPreview = rawArgs.length > TOOL_ARGS_PREVIEW_CHARS
+        ? `${rawArgs.slice(0, TOOL_ARGS_PREVIEW_CHARS)}...`
+        : rawArgs;
+
+      setLastToolCallDebug({
+        toolName,
+        argsPreview,
+        isTodoTool,
+        at: new Date().toLocaleTimeString("ko-KR"),
+      });
+    });
+
+    const streamDoneUnsub = api.onStreamDone?.(() => {
+      setLastToolCallDebug(null);
+    });
+
+    return () => {
+      toolCallUnsub?.();
+      streamDoneUnsub?.();
+    };
+  }, []);
 
   // ─── IPC 이벤트 구독 ──────────────────────────────────────────────────────
 
@@ -181,14 +333,76 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
   // ─── 일반 채팅 전송 ───────────────────────────────────────────────────────
 
+  const isTextLikeFile = (file: File) => {
+    if (file.type.startsWith("text/")) return true;
+    const lower = file.name.toLowerCase();
+    return [
+      ".md", ".txt", ".json", ".yaml", ".yml", ".ts", ".tsx", ".js", ".jsx",
+      ".py", ".rs", ".go", ".java", ".cs", ".html", ".css", ".sql", ".xml",
+    ].some((ext) => lower.endsWith(ext));
+  };
+
+  const handleAddContextClick = () => {
+    contextFileInputRef.current?.click();
+  };
+
+  const handleContextFilesSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    const nextAttachments: ContextAttachment[] = await Promise.all(
+      files.map(async (file, index) => {
+        if (!isTextLikeFile(file)) {
+          return {
+            id: `${Date.now()}-${index}`,
+            name: file.name,
+            content: `[파일: ${file.name}] 바이너리 파일은 텍스트 컨텍스트로 자동 추출되지 않습니다.`,
+            truncated: false,
+          };
+        }
+
+        const raw = await file.text();
+        const trimmed = raw.slice(0, MAX_CONTEXT_CHARS);
+        return {
+          id: `${Date.now()}-${index}`,
+          name: file.name,
+          content: trimmed,
+          truncated: raw.length > MAX_CONTEXT_CHARS,
+        };
+      }),
+    );
+
+    setAttachments((prev) => [...prev, ...nextAttachments]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const buildContextPrefix = () => {
+    if (!attachments.length) return "";
+    const blocks = attachments.map((item) => {
+      const suffix = item.truncated ? "\n[일부만 포함됨: 길이 제한 적용]" : "";
+      return `### 첨부 컨텍스트: ${item.name}\n${item.content}${suffix}`;
+    });
+    return `${blocks.join("\n\n")}\n\n`;
+  };
+
   const handleSendMessage = useCallback(() => {
     const text = inputText.trim();
-    if (!text || activeInterlude) return;
+    if (activeInterlude) return;
+
+    const contextPrefix = buildContextPrefix();
+    const payload = `${contextPrefix}${text}`.trim();
+    if (!payload) return;
 
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
-      content: text,
+      content: payload,
     };
 
     const pendingStream = streamingText.trim();
@@ -207,8 +421,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
 
     setInputText("");
-    onSendMessage?.(text);
-  }, [inputText, activeInterlude, onSendMessage, streamingText]);
+    setAttachments([]);
+    onSendMessage?.(payload);
+  }, [inputText, activeInterlude, onSendMessage, streamingText, attachments]);
 
   // ─── 인터뷰 모드 승인 제출 ────────────────────────────────────────────────
 
@@ -302,7 +517,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               maxWidth: "80%",
             }}
           >
-            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
+            {msg.role === "user" ? (
+              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
+            ) : (
+              <MdBubble content={msg.content} />
+            )}
           </div>
         ))}
         {/* 스트리밍 중인 응답 — 마지막 메시지 바로 아래 assistant 버블로 표시 */}
@@ -318,7 +537,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               maxWidth: "80%",
             }}
           >
-            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{streamingText}</p>
+            <MdBubble content={streamingText} />
           </div>
         )}
         {/* 스트림 에러 표시 */}
@@ -495,6 +714,15 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       {/* ── 일반 채팅 입력창 (인터뷰 모드에서는 숨김) ── */}
       {!isInterludeMode && (
         <div className="chat-input-area">
+          <input
+            ref={contextFileInputRef}
+            type="file"
+            multiple
+            onChange={(e) => {
+              void handleContextFilesSelected(e);
+            }}
+            style={{ display: "none" }}
+          />
           {/* 텍스트 입력 */}
           <input
             type="text"
@@ -504,17 +732,62 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             placeholder="메시지 입력…"
             className="chat-input-field"
           />
+          {attachments.length > 0 && (
+            <div className="context-chip-list">
+              {attachments.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="context-chip"
+                  onClick={() => removeAttachment(item.id)}
+                  title="클릭하면 제거"
+                >
+                  <span>{item.name}</span>
+                  <span className="context-chip-remove">×</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {lastToolCallDebug && (
+            <div
+              style={{
+                fontSize: "11px",
+                color: lastToolCallDebug.isTodoTool ? "#065f46" : "#6b7280",
+                background: lastToolCallDebug.isTodoTool ? "#ecfdf5" : "#f9fafb",
+                border: `1px solid ${lastToolCallDebug.isTodoTool ? "#a7f3d0" : "#e5e7eb"}`,
+                borderRadius: "6px",
+                padding: "4px 8px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              title={`tool=${lastToolCallDebug.toolName} args=${lastToolCallDebug.argsPreview}`}
+            >
+              tool_call {lastToolCallDebug.at}: {lastToolCallDebug.toolName}
+              {lastToolCallDebug.isTodoTool ? " (todo 감지)" : " (todo 미감지)"}
+            </div>
+          )}
           {/* 하단 툴바: 모델 선택 + 전송 버튼 */}
           <div className="chat-toolbar">
-            <ModelSelector
-              value={selectedModel}
-              onChange={onModelChange ?? (() => undefined)}
-              geminiKeyAvailable={geminiKeyAvailable}
-            />
+            <div className="chat-toolbar-left">
+              <button
+                type="button"
+                className="chat-context-btn"
+                onClick={handleAddContextClick}
+                title="파일 컨텍스트 추가"
+              >
+                + 컨텍스트 추가
+              </button>
+              <ModelSelector
+                value={selectedModel}
+                onChange={onModelChange ?? (() => undefined)}
+                geminiKeyAvailable={geminiKeyAvailable}
+              />
+            </div>
             <button
               onClick={handleSendMessage}
-              disabled={!inputText.trim()}
-              className={`chat-send-btn${inputText.trim() ? "" : " disabled"}`}
+              disabled={!inputText.trim() && attachments.length === 0}
+              className={`chat-send-btn${inputText.trim() || attachments.length > 0 ? "" : " disabled"}`}
             >
               <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
                 <path d="M8 2L8 14M8 2L3 7M8 2L13 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

@@ -37,6 +37,7 @@ import { executeCommand, type ExecuteCommandHandle } from "../core/execute-comma
 import type { ReasoningEffort } from "../cli/constants";
 import { loadGeminiApiKey } from "../services/gemini-key-store";
 import { sessionLogger } from "../logs/session-logger";
+import { pushTodoState, type TodoState, type TodoStatus } from "./state-ipc";
 
 // ─── IPC 채널 상수 ────────────────────────────────────────────────────────────
 
@@ -64,6 +65,79 @@ function broadcastToRenderers(channel: string, payload: unknown): void {
     if (!win.isDestroyed()) {
       win.webContents.send(channel, payload);
     }
+  }
+}
+
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizeTodoStatus(status: unknown): TodoStatus {
+  if (status === "in-progress" || status === "completed" || status === "not-started") {
+    return status;
+  }
+  return "not-started";
+}
+
+function normalizeTodoState(candidate: unknown): TodoState | null {
+  if (!candidate || typeof candidate !== "object") return null;
+  const raw = candidate as Record<string, unknown>;
+  if (!Array.isArray(raw.todoList)) return null;
+
+  const todoList = raw.todoList
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item, index) => {
+      const idRaw = item.id;
+      const id = typeof idRaw === "number"
+        ? idRaw
+        : (typeof idRaw === "string" ? Number.parseInt(idRaw, 10) : index + 1);
+      return {
+        id: Number.isFinite(id) ? id : index + 1,
+        title: typeof item.title === "string" ? item.title : "",
+        status: sanitizeTodoStatus(item.status),
+      };
+    });
+
+  return { todoList };
+}
+
+function extractTodoStateFromToolCall(toolName: string, args: unknown): TodoState | null {
+  if (!toolName.toLowerCase().includes("manage_todo_list")) {
+    return null;
+  }
+
+  const parsedArgs = parseMaybeJson(args);
+  const asObj = (parsedArgs && typeof parsedArgs === "object")
+    ? (parsedArgs as Record<string, unknown>)
+    : null;
+
+  const candidates: unknown[] = [
+    parsedArgs,
+    asObj?.parameters,
+    asObj?.input,
+    asObj?.arguments,
+    asObj?.payload,
+  ];
+
+  for (const candidate of candidates) {
+    const todo = normalizeTodoState(parseMaybeJson(candidate));
+    if (todo) return todo;
+  }
+
+  return null;
+}
+
+function applyTodoUpdateFromToolCall(toolName: string, args: unknown): void {
+  const todoState = extractTodoStateFromToolCall(toolName, args);
+  if (todoState) {
+    pushTodoState(todoState);
   }
 }
 
@@ -237,6 +311,7 @@ export function startAgentStream(
       },
       onToolCall: (e) => {
         sessionLogger.logToolCall(e.toolName, e.args);
+        applyTodoUpdateFromToolCall(e.toolName, e.args);
         broadcastToRenderers(STREAM_TOOL_CALL_CHANNEL, e);
       },
       onToolResult: (e) => broadcastToRenderers(STREAM_TOOL_RESULT_CHANNEL, e),
@@ -317,6 +392,7 @@ export function startAgentStream(
 
     onToolCall: (e) => {
       sessionLogger.logToolCall(e.toolName, e.args);
+      applyTodoUpdateFromToolCall(e.toolName, e.args);
       broadcastToRenderers(STREAM_TOOL_CALL_CHANNEL, e);
     },
     onToolResult: (e) => broadcastToRenderers(STREAM_TOOL_RESULT_CHANNEL, e),
@@ -364,13 +440,17 @@ export function stopAgentStream(): void {
     _geminiAbortController.abort();
     _geminiAbortController = null;
   }
-  if (!_activeSession) return;
+  if (!_activeSession) {
+    broadcastToRenderers("omx:lifecycle-change", { status: "idle", mergedModes: [], updatedAt: new Date().toISOString() });
+    return;
+  }
 
   const { handle, parser } = _activeSession;
   _activeSession = null;
 
   parser.detach();
   handle.child.kill("SIGTERM");
+  broadcastToRenderers("omx:lifecycle-change", { status: "idle", mergedModes: [], updatedAt: new Date().toISOString() });
 }
 
 // ─── IPC 핸들러 등록 ──────────────────────────────────────────────────────────
@@ -387,6 +467,13 @@ export function registerStreamBridgeIpc(): void {
       payload: { command: string; args?: string[]; reasoningEffort?: ReasoningEffort; provider?: string; model?: string },
     ) => {
       const { command, args = [], reasoningEffort = "standard", provider, model } = payload;
+      // 스트리밍 시작 → lifecycle 상태를 running으로 즉시 업데이트
+      broadcastToRenderers("omx:lifecycle-change", {
+        status: "running",
+        activeMode: command,
+        mergedModes: [command],
+        updatedAt: new Date().toISOString(),
+      });
       startAgentStream(command, args, reasoningEffort, provider, model);
       return { ok: true };
     },

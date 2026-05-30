@@ -301,6 +301,16 @@ export class CodexStreamParser {
         break;
       }
 
+      case "item.started": {
+        const item = ev["item"] as Record<string, unknown> | undefined;
+        if (!item) break;
+        const toolCall = this._mapItemStartedToToolCall(item);
+        if (toolCall) {
+          this.callbacks.onToolCall?.(toolCall);
+        }
+        break;
+      }
+
       case "thread.completed":
       case "turn.completed": {
         const envelope: DoneEnvelope = { type: "done", exitCode: 0 };
@@ -331,6 +341,47 @@ export class CodexStreamParser {
       default:
         break;
     }
+  }
+
+  private _parseMaybeJson(value: unknown): unknown {
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return value;
+    }
+  }
+
+  private _mapItemStartedToToolCall(item: Record<string, unknown>): ToolCallEnvelope | null {
+    const itemType = String(item["type"] ?? "");
+    const isToolCallType =
+      itemType === "function_call" ||
+      itemType === "tool_call" ||
+      itemType === "mcp_tool_call";
+    if (!isToolCallType) return null;
+
+    const toolNameRaw = item["name"] ?? item["tool_name"];
+    const toolName = typeof toolNameRaw === "string" ? toolNameRaw : "";
+    if (!toolName) return null;
+
+    const callIdRaw = item["call_id"] ?? item["id"] ?? `call-${Date.now()}`;
+    const callId = String(callIdRaw);
+
+    const argsRaw =
+      item["arguments"] ??
+      item["args"] ??
+      item["input"] ??
+      item["parameters"] ??
+      {};
+
+    return {
+      type: "tool_call",
+      toolName,
+      callId,
+      args: this._parseMaybeJson(argsRaw),
+    };
   }
 }
 

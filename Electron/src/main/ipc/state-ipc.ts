@@ -16,6 +16,7 @@
  */
 
 import { ipcMain, BrowserWindow } from "electron";
+import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { getStateWatcher, _resetStateWatcherForTest } from "../state/state-watcher";
@@ -103,6 +104,35 @@ function parseTodoSnapshot(snapshot: Record<string, unknown> | null): TodoState 
   return { todoList };
 }
 
+function sanitizeTodoState(state: TodoState): TodoState {
+  return {
+    todoList: (state.todoList ?? []).map((item) => ({
+      id: typeof item.id === "number" ? item.id : 0,
+      title: typeof item.title === "string" ? item.title : "",
+      status: (["not-started", "in-progress", "completed"].includes(item.status)
+        ? item.status
+        : "not-started") as TodoStatus,
+    })),
+  };
+}
+
+export function pushTodoState(state: TodoState): void {
+  todoCache = sanitizeTodoState(state);
+  broadcastTodoChange(todoCache);
+}
+
+function isTodoStateFile(filename: string): boolean {
+  return filename === "todo-state.json" || /^todo.*-state\.json$/i.test(filename);
+}
+
+function resolveDefaultOmxRoot(): string {
+  const cwdOmx = path.join(process.cwd(), ".omx");
+  if (fs.existsSync(path.join(cwdOmx, "state"))) {
+    return cwdOmx;
+  }
+  return path.join(os.homedir(), ".omx");
+}
+
 // ─── IPC 등록 ─────────────────────────────────────────────────────────────────
 
 /**
@@ -112,7 +142,7 @@ function parseTodoSnapshot(snapshot: Record<string, unknown> | null): TodoState 
  * @param omxRoot `.omx` 디렉터리 경로 (기본값: `~/.omx`)
  */
 export function registerStateIpc(omxRoot?: string): void {
-  const root = omxRoot ?? path.join(os.homedir(), ".omx");
+  const root = omxRoot ?? resolveDefaultOmxRoot();
   const defaultStateDir = path.join(root, "state");
 
   const watcher = getStateWatcher();
@@ -121,11 +151,19 @@ export function registerStateIpc(omxRoot?: string): void {
   // 않아도 앱 구동 시 곧바로 .omx/state/ 감시를 시작한다.
   watcher.start(defaultStateDir);
 
+  // 초기 스냅샷에서 todo-state를 즉시 캐시에 반영해 첫 렌더 공백을 줄인다.
+  const initialSnapshots = watcher.getCurrentState();
+  for (const [filename, snapshot] of initialSnapshots.entries()) {
+    if (isTodoStateFile(filename)) {
+      todoCache = parseTodoSnapshot(snapshot);
+      break;
+    }
+  }
+
   // ── StateWatcher 변경 이벤트 → Renderer 브로드캐스트 ─────────────────────
   watcher.onChange((event) => {
-    if (event.filename === "todo-state.json") {
-      todoCache = parseTodoSnapshot(event.snapshot);
-      broadcastTodoChange(todoCache);
+    if (isTodoStateFile(event.filename)) {
+      pushTodoState(parseTodoSnapshot(event.snapshot));
     } else {
       const partial = parseSingleSnapshot(event.filename, event.snapshot);
       broadcastLifecycleChange(partial);
