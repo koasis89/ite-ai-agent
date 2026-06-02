@@ -1,0 +1,293 @@
+﻿# OMX API 명세서 v2
+
+## 0. 문서 정보
+- 문서명: OMX API 명세서 v2
+- 버전: v2.0
+- 작성일: 2026-05-30
+- 작성자: 고종훈
+- 검토자: 고종훈
+- 대상 독자: OMX 신규/기존 개발자, 리뷰어, 운영 담당자
+- 변경 이력:
+  - v2.0: Desktop API 템플릿 순서로 전면 재구성하고, v1 공개 API/완전판 기준을 반영함
+
+## 1. 문서 개요
+### 1.1 목적
+- OMX의 공개 인터페이스를 템플릿 기반 표준 목차로 제공한다.
+- 모듈별 호출 표면, 공통 규약, 운영/보안/검증 기준을 한 문서에서 확인할 수 있게 한다.
+
+### 1.2 범위 (In Scope)
+- Electron/design/omx 하위 모듈의 외부 인터페이스(공개 API)
+- CLI/IPC/이벤트/스트림 채널
+- 공통 호출 규약, 변경/호환성 정책, 검증 게이트
+
+### 1.3 비범위 (Out of Scope)
+- 내부 helper 구현 상세
+- 라인 단위 알고리즘 설명
+- 외부 운영 정책 원문 전체 인용
+
+### 1.4 용어/약어
+- 핵심 용어는 Electron/design/omx/omx-상세설계서.md의 2.2 표 용어집을 기준으로 해석한다.
+
+## 2. 설계 원칙
+### 2.1 API 설계 원칙
+- 공개 API는 내부 구현보다 호출자 계약을 우선한다.
+- 입력 검증, 상태 전이, 부작용 발생 지점을 문서에 명시한다.
+- 동일한 의미의 기능은 모듈/채널/컴포넌트 이름이 달라도 하나의 공개 표면으로 읽는다.
+- 새 API는 기존 호출자에 대한 하위 호환을 먼저 고려한다.
+- 설계서와 구현, 테스트는 동일한 이름과 동일한 의미를 유지해야 한다.
+
+### 2.2 네이밍 규칙
+- API 이름은 기능과 부작용을 명확히 드러내는 동사/명사 조합을 사용한다.
+- 모듈 공개 API는 내부 파일명/구조 변경과 독립적으로 유지한다.
+- 커맨드/채널/컴포넌트도 함수와 동등한 공개 표면으로 명세한다.
+
+### 2.3 버전 정책
+- 문서 버전은 Major.Minor를 사용한다.
+- 하위 호환 영향이 있는 변경은 Minor 이상 상승을 권장한다.
+- 데이터 계약 변경 시 스키마 버전 필드를 유지한다.
+
+1. v1의 모듈 API 목록과 완전판 표를 함께 확인한다.
+2. 호출자는 3장 공통 규약을 먼저 적용한다.
+3. 새 API 추가/변경 시 6장과 12.5를 동시에 갱신한다.
+
+## 12. 부록
+### 12.1 에러 코드 전체표
+| 코드 | 의미 | 권장 대응 |
+|---|---|---|
+| INVALID_INPUT | 입력 검증 실패 | 파라미터 재검증 |
+| INVALID_TRANSITION | 금지 상태 전이 | 현재 상태 재조회 후 재시도 |
+| TIMEOUT | 제한시간 초과 | 타임아웃/재시도 정책 조정 |
+| EXTERNAL_GATEWAY_FAILED | 외부 연동 실패 | fallback 경로 사용 |
+
+### 12.2 샘플 시나리오
+- 시나리오 A: 사용자 입력 -> hooks 라우팅 -> pipeline 실행 -> stream 반영
+- 시나리오 B: team 실행 -> sidecar/hud 관측 -> 완료 ledger 기록
+
+### 12.3 FAQ
+- Q. 함수가 아닌 채널/컴포넌트도 API인가?
+- A. OMX는 공개 호출 표면이면 API로 취급한다.
+- Q. 상세 타입 표는 어디서 보나?
+- A. 이 문서 12.5 완전판 인덱스와 v1 canonical 문서에서 확인한다.
+
+### 12.4 참고 링크
+- Electron/design/desktop/api명세서-템플릿.md
+- Electron/design/omx/omx-상세설계서.md
+- Electron/design/omx/omx-api-명세서.md
+- Electron/design/omx/*-module-design.md
+
+### 12.5 API 완전판 명세 (공개 API 1:1)
+- 이 섹션은 템플릿상의 완전판 인덱스다.
+- 실제 1:1 상세 표는 Electron/design/omx/omx-api-명세서.md의 canonical tables와 동기화해 유지한다.
+- 아래 표는 도메인별 읽기 순서와 대표 공개 표면을 안내한다.
+
+| 모듈 | 공개 표면 요약 | 읽는 순서 |
+|---|---|---|
+| adapt | 경로/진단/초기화 API | planning link -> probe/status/doctor |
+| agents | 에이전트 정의/설치 API | manifest -> install -> canonical target |
+| auth | 슬롯/핫스왑 API | config -> slots -> rotation plan |
+| autoresearch | 미션/샌드박스/평가 API | contract -> runtime -> outcome |
+| catalog | 매니페스트/설치계약 API | manifest -> counts -> validation |
+| cli | 실행 커맨드 진입점 | launch/exec -> workflow -> cleanup |
+| components | React UI 공개 컴포넌트 | chat -> dashboard -> notice/panel |
+| core | 실행기/콜백 API | onEnvelope/onRawLine/onDone/onError |
+| env | preflight 검사 API | checker -> result -> gate |
+| goal-workflows | 목표 전이/ledger API | create -> validate -> complete |
+| hooks | 키워드/triage/overlay API | detect -> triage -> dispatch |
+| hud | HUD 렌더/권한 루프 API | read -> render -> tick |
+| ipc | renderer/main 브리지 채널 | stream/state/task/interlude |
+| logs | 스트림 로깅/채널 상수 | request/response/tool/system |
+| main | electronAPI invoke/on 브리지 | start/stop/status/tool |
+| mcp | stdio 서버/상태경로 API | auto-start -> state dir -> telemetry |
+| notifications | 알림/템플릿 API | config -> dispatch -> render |
+| openclaw | 게이트웨이 호출/검증 API | config -> resolve -> wake |
+| ops | 드리프트 진단 API | logs/manifest -> report |
+| performance-goal | 목표 생성/완료 API | create -> checkpoint -> complete |
+| pipeline | 실행/재개/취소 API | run -> resume -> cancel |
+| planning | artifact/힌트 판별 API | parse -> compare -> select |
+| question | 질문 레코드/답변 대기 API | create -> prompt -> answer |
+| ralph | phase/state/evidence API | normalize -> validate -> complete |
+| ralplan | 합의 게이트 API | sources -> gate -> durable evidence |
+| renderer | 채팅/대시보드 props | message -> model -> lifecycle |
+| runtime | outcome/bridge/process-tree API | normalize -> state -> execute |
+| scripts | 빌드/검증/알림 스크립트 | build -> check -> dispatch |
+| services | task/auth key API | read -> claim -> transition |
+| sidecar | tmux watch/렌더 API | snapshot -> render -> launch |
+| state | mode state read/write API | read -> write -> status |
+| team | team runtime/api gateway | start -> monitor -> shutdown |
+| test | 단위/통합 테스트 표면 | unit -> integrated |
+| utils | 경로/JSON/프로세스 유틸 | path -> parse -> spawn |
+| wiki | 지식 ingest/query/hook API | ingest -> query -> hook |
+
+## 5. API 목록 요약
+### 5.1 도메인별 분류 표
+| 분류 | 모듈 |
+|---|---|
+| 실행/런타임 | core, runtime, cli, main, ipc, scripts |
+| 워크플로 | pipeline, planning, question, goal-workflows, performance-goal, ralph, ralplan, autoresearch, team |
+| 관측/지원 | logs, hud, sidecar, ops, notifications, openclaw |
+| 상태/설정/유틸 | state, services, env, mcp, auth, catalog, adapt, agents, wiki, renderer, components, test, utils |
+
+### 5.2 엔드포인트 매트릭스 (Method / Path / 권한 / 설명)
+- OMX는 REST Method/Path 중심보다 Command/Channel/API 함수 중심 매트릭스를 사용한다.
+- 실제 공개 엔트리 전체는 6장과 12.5(완전판 인덱스)에서 확인한다.
+
+## 6. API 상세
+### 6.1 도메인별 공개 API 목록
+- 이 문서는 공개 API를 도메인 단위로 요약하고, 상세한 1:1 정의는 12.5에서 제공한다.
+
+### 6.1.1 실행/런타임
+- core, runtime, cli, main, ipc, scripts는 실행 경계와 외부 호출 진입점이다.
+
+### 6.1.2 워크플로
+- pipeline, planning, question, goal-workflows, performance-goal, ralph, ralplan, autoresearch, team은 상태 전이와 오케스트레이션을 담당한다.
+
+### 6.1.3 관측/지원
+- logs, hud, sidecar, ops, notifications, openclaw는 관측, 알림, 외부 연동을 제공한다.
+
+### 6.1.4 상태/설정/유틸
+- state, services, env, mcp, auth, catalog, adapt, agents, wiki, renderer, components, test, utils는 공통 기반과 UI 표면을 제공한다.
+
+### 6.2 사용 가이드(호출 순서/독해 순서)
+1. core/runtime/cli/main/ipc를 먼저 본다.
+2. 실행 경계가 정리되면 pipeline/planning/question/team 계열을 본다.
+3. 사용자 화면과 관측이 필요하면 renderer/components/logs/hud/sidecar를 본다.
+4. 공통 경로와 설정은 utils/env/state/services/mcp/auth/catalog/agents/adapt/openclaw를 본다.
+
+### 6.3 함수형 1:1 상세 표(완전판)
+- 전체 1:1 상세 표는 본 문서 12.5에 수록한다.
+- canonical 1:1 표는 Electron/design/omx/omx-api-명세서.md와 같은 기준으로 유지한다.
+
+## 7. 이벤트/스트림 (해당 시)
+### 7.1 이벤트 채널 목록
+- stream-bridge-ipc, state-ipc, ask-ipc, interlude-ipc, adapter-ipc, ops-ipc
+- hook 채널: HOOK_IPC_CHANNEL, HOOK_IPC_PRIORITY_CHANNEL
+
+### 7.2 이벤트 페이로드 스키마
+- stream: token/tool/done/error payload
+- state: lifecycle/todo payload
+- hook: event/timestamp/source/context 기반 레코드
+
+### 7.3 재전송/순서보장/중복처리 정책
+- 로그/원장 기록은 append-only 우선
+- 알림은 dedupe/cooldown 적용
+- 상태 동기화는 canonical state를 기준으로 reconcile
+
+## 8. 보안
+### 8.1 인증키/토큰 관리
+- saveGeminiApiKey, loadGeminiApiKey, clearGeminiApiKey를 통해 안전 저장/조회/삭제한다.
+
+### 8.2 입력 검증
+- 경로 traversal, 식별자 문자 집합, JSON 파싱 실패를 방어한다.
+
+### 8.3 민감정보 마스킹
+- redactAuthSecrets 및 로그 마스킹 정책을 적용한다.
+
+### 8.4 감사로그 정책
+- ledger.jsonl, 상태 전이 로그, hook 이벤트를 추적 근거로 유지한다.
+
+## 9. 성능/운영
+### 9.1 SLA/SLO
+- 초기 로드 지연 최소화, 스트림 지연 최소화, 상태 동기화 일관성 유지
+
+### 9.2 캐시 정책
+- 반복 조회 경로는 캐시 가능하나 canonical state와 불일치 시 즉시 무효화
+
+### 9.3 모니터링 지표
+- active mode 수, stream 처리 지연, 실패율, 팀 워커 idle/blocked 비율
+
+### 9.4 장애 대응/폴백 전략
+- workspace state 부재 시 home state fallback
+- 외부 게이트웨이 실패 시 로컬 안내 경로 유지
+
+## 10. 테스트/검증
+### 10.1 단위 테스트 기준
+- 경로/상태 정규화, 파싱, 전이 규칙, 마스킹
+
+### 10.2 통합 테스트 기준
+- IPC/stream/state watcher/team/pipeline 통합 흐름
+
+### 10.3 계약 테스트 (Contract Test)
+- 공개 API 이름/인자/반환 타입의 문서-구현 정합성 점검
+
+### 10.4 회귀 테스트 게이트
+- 공개 API 변경 시 문서+설계서+테스트 동시 갱신
+
+## 11. 마이그레이션 가이드
+### 11.1 버전 간 변경점
+- v1은 카탈로그/완전판이 분리 표기되었고, v2는 템플릿 표준 목차로 재정렬했다.
+
+### 11.2 Deprecated API 목록
+- 현재 문서 기준 명시적 deprecated 공개 API는 없음
+
+### 11.3 전환 절차
+1. v1의 모듈 API 목록과 완전판 표를 함께 확인한다.
+2. 호출자는 3장 공통 규약을 먼저 적용한다.
+3. 새 API 추가/변경 시 6장과 12.5를 동시에 갱신한다.
+
+## 12. 부록
+### 12.1 에러 코드 전체표
+| 코드 | 의미 | 권장 대응 |
+|---|---|---|
+| INVALID_INPUT | 입력 검증 실패 | 파라미터 재검증 |
+| INVALID_TRANSITION | 금지 상태 전이 | 현재 상태 재조회 후 재시도 |
+| TIMEOUT | 제한시간 초과 | 타임아웃/재시도 정책 조정 |
+| EXTERNAL_GATEWAY_FAILED | 외부 연동 실패 | fallback 경로 사용 |
+
+### 12.2 샘플 시나리오
+- 시나리오 A: 사용자 입력 -> hooks 라우팅 -> pipeline 실행 -> stream 반영
+- 시나리오 B: team 실행 -> sidecar/hud 관측 -> 완료 ledger 기록
+
+### 12.3 FAQ
+- Q. 함수가 아닌 채널/컴포넌트도 API인가?
+- A. OMX는 공개 호출 표면이면 API로 취급한다.
+- Q. 상세 타입 표는 어디서 보나?
+- A. 이 문서 12.5 완전판 인덱스와 v1 canonical 문서에서 확인한다.
+
+### 12.4 참고 링크
+- Electron/design/desktop/api명세서-템플릿.md
+- Electron/design/omx/omx-상세설계서.md
+- Electron/design/omx/omx-api-명세서.md
+- Electron/design/omx/*-module-design.md
+
+### 12.5 API 완전판 명세 (공개 API 1:1)
+- 이 섹션은 템플릿상의 완전판 인덱스다.
+- 실제 1:1 상세 표는 Electron/design/omx/omx-api-명세서.md의 canonical tables와 동기화해 유지한다.
+- 아래 표는 도메인별 읽기 순서와 대표 공개 표면을 안내한다.
+
+| 모듈 | 공개 표면 요약 | 읽는 순서 |
+|---|---|---|
+| adapt | 경로/진단/초기화 API | planning link -> probe/status/doctor |
+| agents | 에이전트 정의/설치 API | manifest -> install -> canonical target |
+| auth | 슬롯/핫스왑 API | config -> slots -> rotation plan |
+| autoresearch | 미션/샌드박스/평가 API | contract -> runtime -> outcome |
+| catalog | 매니페스트/설치계약 API | manifest -> counts -> validation |
+| cli | 실행 커맨드 진입점 | launch/exec -> workflow -> cleanup |
+| components | React UI 공개 컴포넌트 | chat -> dashboard -> notice/panel |
+| core | 실행기/콜백 API | onEnvelope/onRawLine/onDone/onError |
+| env | preflight 검사 API | checker -> result -> gate |
+| goal-workflows | 목표 전이/ledger API | create -> validate -> complete |
+| hooks | 키워드/triage/overlay API | detect -> triage -> dispatch |
+| hud | HUD 렌더/권한 루프 API | read -> render -> tick |
+| ipc | renderer/main 브리지 채널 | stream/state/task/interlude |
+| logs | 스트림 로깅/채널 상수 | request/response/tool/system |
+| main | electronAPI invoke/on 브리지 | start/stop/status/tool |
+| mcp | stdio 서버/상태경로 API | auto-start -> state dir -> telemetry |
+| notifications | 알림/템플릿 API | config -> dispatch -> render |
+| openclaw | 게이트웨이 호출/검증 API | config -> resolve -> wake |
+| ops | 드리프트 진단 API | logs/manifest -> report |
+| performance-goal | 목표 생성/완료 API | create -> checkpoint -> complete |
+| pipeline | 실행/재개/취소 API | run -> resume -> cancel |
+| planning | artifact/힌트 판별 API | parse -> compare -> select |
+| question | 질문 레코드/답변 대기 API | create -> prompt -> answer |
+| ralph | phase/state/evidence API | normalize -> validate -> complete |
+| ralplan | 합의 게이트 API | sources -> gate -> durable evidence |
+| renderer | 채팅/대시보드 props | message -> model -> lifecycle |
+| runtime | outcome/bridge/process-tree API | normalize -> state -> execute |
+| scripts | 빌드/검증/알림 스크립트 | build -> check -> dispatch |
+| services | task/auth key API | read -> claim -> transition |
+| sidecar | tmux watch/렌더 API | snapshot -> render -> launch |
+| state | mode state read/write API | read -> write -> status |
+| team | team runtime/api gateway | start -> monitor -> shutdown |
+| test | 단위/통합 테스트 표면 | unit -> integrated |
+| utils | 경로/JSON/프로세스 유틸 | path -> parse -> spawn |
+| wiki | 지식 ingest/query/hook API | ingest -> query -> hook |
