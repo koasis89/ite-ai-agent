@@ -17,6 +17,7 @@ const electronAPI = {
     reasoningEffort?: "low" | "standard" | "high";
     provider?: "claude" | "gemini";
     model?: string;
+    persona?: string;
   }) => ipcRenderer.invoke("omx:agent-stream:start", payload),
   stopAgentStream: () => ipcRenderer.invoke("omx:agent-stream:stop"),
   onStreamToken: (callback: Listener) => on("omx:stream-token", callback),

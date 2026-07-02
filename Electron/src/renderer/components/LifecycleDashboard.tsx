@@ -39,7 +39,7 @@ export interface LifecycleState {
 
 declare global {
   interface Window {
-    electronAPI?: {
+    electronAPI: {
       getLifecycleState?: () => Promise<LifecycleState>;
       onLifecycleChange?: (cb: (state: Partial<LifecycleState>) => void) => () => void;
       startLifecycleWatcher?: (stateDir: string) => Promise<{ ok: boolean; error?: string }>;

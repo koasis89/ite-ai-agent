@@ -15710,6 +15710,7 @@ var STREAM_TOOL_CALL_CHANNEL = "omx:stream-tool-call";
 var STREAM_TOOL_RESULT_CHANNEL = "omx:stream-tool-result";
 var STREAM_INTERLUDE_CHANNEL = "omx:stream-interlude";
 var STREAM_DONE_CHANNEL = "omx:stream-done";
+var STREAM_ERROR_CHANNEL = "omx:stream-error";
 function parseStreamLine(raw) {
   const line = raw.trim();
   if (!line) return null;
@@ -16260,7 +16261,7 @@ async function streamGeminiDirect(model, apiKey, prompt, signal) {
     _geminiAbortController = null;
   }
 }
-function startAgentStream(command, args, reasoningEffort = "standard", provider, model) {
+function startAgentStream(command, args, reasoningEffort = "standard", provider, model, persona) {
   if (_activeSession) {
     stopAgentStream();
   }
@@ -16297,7 +16298,10 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
   }
   if (command === "exec") {
     const modelArgs = model && model !== "auto" ? ["--model", model] : [];
-    const execArgs = ["--json", "--ephemeral", "--skip-git-repo-check", "-C", ".", ...modelArgs, ...args];
+    const personaArgs = persona && args.length > 0 ? [`prompts/${persona}.md \uC758 \uC5ED\uD560 \uD398\uB974\uC18C\uB098\uB85C\uC11C \uC751\uB2F5\uD574\uC918.
+
+${args[0]}`, ...args.slice(1)] : args;
+    const execArgs = ["--json", "--ephemeral", "--skip-git-repo-check", "-C", ".", ...modelArgs, ...personaArgs];
     const execHandle = executeCommand({
       command: "exec",
       provider: void 0,
@@ -16332,6 +16336,7 @@ function startAgentStream(command, args, reasoningEffort = "standard", provider,
       },
       onStreamError: (e) => {
         sessionLogger.logError(e.message);
+        broadcastToRenderers2(STREAM_ERROR_CHANNEL, { message: e.message });
       },
       onRawLine: (line) => {
         sessionLogger.logSystemMessage(line);
@@ -16434,14 +16439,14 @@ function registerStreamBridgeIpc() {
   import_electron8.ipcMain.handle(
     AGENT_STREAM_START_CHANNEL,
     (_event, payload) => {
-      const { command, args = [], reasoningEffort = "standard", provider, model } = payload;
+      const { command, args = [], reasoningEffort = "standard", provider, model, persona } = payload;
       broadcastToRenderers2("omx:lifecycle-change", {
         status: "running",
         activeMode: command,
         mergedModes: [command],
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       });
-      startAgentStream(command, args, reasoningEffort, provider, model);
+      startAgentStream(command, args, reasoningEffort, provider, model, persona);
       return { ok: true };
     }
   );

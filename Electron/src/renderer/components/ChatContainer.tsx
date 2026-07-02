@@ -19,13 +19,24 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import * as pdfjsLib from "pdfjs-dist";
+import * as XLSX from "xlsx";
 import { ModelSelector } from "./ModelSelector";
+import { TemplateQuickMenu } from "./TemplateQuickMenu";
+
+// pdfjs 워커 설정 (Vite가 new URL(..., import.meta.url) 자산 경로를 번들링)
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 // ─── 마크다운 메시지 버블 ────────────────────────────────────────────────────
 
 const MdBubble: React.FC<{ content: string }> = ({ content }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm]}
+    rehypePlugins={[rehypeRaw]}
     components={{
       // 코드 블록 스타일
       code({ className, children, ...props }) {
@@ -119,22 +130,7 @@ const MdBubble: React.FC<{ content: string }> = ({ content }) => (
 // Electron preload에서 window.electronAPI로 노출됨을 가정
 declare global {
   interface Window {
-    electronAPI: {
-      onStreamToolCall?: (
-        callback: (payload: { toolName?: string; args?: unknown; callId?: string }) => void,
-      ) => () => void;
-      onStreamDone?: (callback: (payload: { type?: string; exitCode?: number }) => void) => () => void;
-      onInterludeStart: (
-        callback: (payload: InterludePayload) => void,
-      ) => () => void;
-      onInterludeResolved: (callback: (data: { callId: string }) => void) => () => void;
-      onInterludeCancelled: (callback: (data: { callId: string }) => void) => () => void;
-      sendInterludeAck: (ack: {
-        callId: string;
-        approved: boolean;
-        userInput?: string;
-      }) => Promise<{ ok: boolean; error?: string }>;
-    };
+    electronAPI: any;
   }
 }
 
@@ -167,12 +163,48 @@ const KIND_LABEL: Record<InterludePayload["kind"], string> = {
   "needs-input":        "입력 컨텍스트 필요",
 };
 
+// ─── 복사 버튼 컴포넌트 ──────────────────────────────────────────────────────
+
+const CopyButton: React.FC<{ content: string }> = ({ content }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "4px" }}>
+      <button
+        onClick={handleCopy}
+        title="내용 복사"
+        className="btn-copy-response"
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          fontSize: "14px",
+          opacity: copied ? 1 : 0.4,
+          transition: "opacity 0.2s",
+          padding: "4px",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = copied ? "1" : "0.4")}
+      >
+        {copied ? "✔️" : "📋"}
+      </button>
+    </div>
+  );
+};
+
 // ─── ChatContainer 컴포넌트 ───────────────────────────────────────────────────
 
 interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  attachedFiles?: string[];
 }
 
 interface ContextAttachment {
@@ -184,6 +216,39 @@ interface ContextAttachment {
 
 const MAX_CONTEXT_CHARS = 4000;
 const TOOL_ARGS_PREVIEW_CHARS = 120;
+
+/** PDF 파일의 텍스트를 페이지 순서대로 추출해 하나의 문자열로 합친다. */
+async function extractPdfText(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+  const pdf = await loadingTask.promise;
+  const pages: string[] = [];
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ");
+    pages.push(pageText);
+  }
+  await loadingTask.destroy();
+  return pages.join("\n\n");
+}
+
+/** XLSX/XLS 파일의 데이터를 추출하여 텍스트 형태로 변환한다. */
+async function extractXlsxText(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+  const sheetsText: string[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    const csv = XLSX.utils.sheet_to_csv(worksheet);
+    if (csv.trim()) {
+      sheetsText.push(`## 시트명: ${sheetName}\n${csv}`);
+    }
+  }
+  return sheetsText.join("\n\n");
+}
 
 interface ChatContainerProps {
   /** 초기 메시지 목록 (스토어 연동 시 대체 가능) */
@@ -261,7 +326,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     const api = window.electronAPI;
     if (!api) return;
 
-    const toolCallUnsub = api.onStreamToolCall?.((payload) => {
+    const toolCallUnsub = api.onStreamToolCall?.((payload: { toolName?: string; args?: unknown; callId?: string }) => {
       const toolName = (payload?.toolName ?? "unknown").trim() || "unknown";
       const isTodoTool = toolName.toLowerCase().includes("manage_todo_list");
       const rawArgs =
@@ -297,7 +362,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     if (!api) return;
 
     // 인터류드 시작 → 인터뷰 모드 진입
-    const unsubStart = api.onInterludeStart((payload) => {
+    const unsubStart = api.onInterludeStart((payload: InterludePayload) => {
       setActiveInterlude(payload);
       setIsProcessingLock(false);
       setInterviewInput("");
@@ -354,9 +419,62 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
     const nextAttachments: ContextAttachment[] = await Promise.all(
       files.map(async (file, index) => {
+        const id = `${Date.now()}-${index}`;
+
+        // PDF: pdfjs로 텍스트 추출 후 기존 길이 제한 로직 재사용
+        if (file.name.toLowerCase().endsWith(".pdf")) {
+          try {
+            const raw = await extractPdfText(file);
+            const trimmed = raw.slice(0, MAX_CONTEXT_CHARS);
+            return {
+              id,
+              name: file.name,
+              content: trimmed.trim()
+                ? trimmed
+                : `[파일: ${file.name}] 추출 가능한 텍스트가 없습니다. (스캔/이미지 PDF일 수 있습니다.)`,
+              truncated: raw.length > MAX_CONTEXT_CHARS,
+            };
+          } catch (err) {
+            return {
+              id,
+              name: file.name,
+              content: `[파일: ${file.name}] PDF 텍스트 추출에 실패했습니다: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+              truncated: false,
+            };
+          }
+        }
+
+        // Excel: xlsx로 데이터 추출 후 기존 길이 제한 로직 재사용
+        const fileNameLower = file.name.toLowerCase();
+        if (fileNameLower.endsWith(".xlsx") || fileNameLower.endsWith(".xls")) {
+          try {
+            const raw = await extractXlsxText(file);
+            const trimmed = raw.slice(0, MAX_CONTEXT_CHARS);
+            return {
+              id,
+              name: file.name,
+              content: trimmed.trim()
+                ? trimmed
+                : `[파일: ${file.name}] 추출 가능한 엑셀 데이터가 없습니다.`,
+              truncated: raw.length > MAX_CONTEXT_CHARS,
+            };
+          } catch (err) {
+            return {
+              id,
+              name: file.name,
+              content: `[파일: ${file.name}] 엑셀 데이터 추출에 실패했습니다: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+              truncated: false,
+            };
+          }
+        }
+
         if (!isTextLikeFile(file)) {
           return {
-            id: `${Date.now()}-${index}`,
+            id,
             name: file.name,
             content: `[파일: ${file.name}] 바이너리 파일은 텍스트 컨텍스트로 자동 추출되지 않습니다.`,
             truncated: false,
@@ -366,7 +484,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         const raw = await file.text();
         const trimmed = raw.slice(0, MAX_CONTEXT_CHARS);
         return {
-          id: `${Date.now()}-${index}`,
+          id,
           name: file.name,
           content: trimmed,
           truncated: raw.length > MAX_CONTEXT_CHARS,
@@ -402,7 +520,8 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
-      content: payload,
+      content: text, // 화면에는 사용자가 입력한 텍스트만 표시
+      attachedFiles: attachments.length > 0 ? attachments.map((a) => a.name) : undefined,
     };
 
     const pendingStream = streamingText.trim();
@@ -515,12 +634,40 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               backgroundColor: msg.role === "user" ? "#e0e7ff" : "#f3f4f6",
               alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
               maxWidth: "80%",
+              position: "relative",
             }}
           >
             {msg.role === "user" ? (
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {msg.attachedFiles && msg.attachedFiles.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                    {msg.attachedFiles.map((name, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          fontSize: "12px",
+                          background: "#c7d2fe",
+                          color: "#3730a3",
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}
+                      >
+                        📎 {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {msg.content && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>}
+              </div>
             ) : (
-              <MdBubble content={msg.content} />
+              // assistant & system 메시지는 MdBubble과 함께 복사 버튼 제공
+              <>
+                <MdBubble content={msg.content} />
+                <CopyButton content={msg.content} />
+              </>
             )}
           </div>
         ))}
@@ -535,9 +682,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               backgroundColor: "#f3f4f6",
               alignSelf: "flex-start",
               maxWidth: "80%",
+              position: "relative",
             }}
           >
             <MdBubble content={streamingText} />
+            <CopyButton content={streamingText} />
           </div>
         )}
         {/* 스트림 에러 표시 */}
@@ -778,6 +927,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               >
                 + 컨텍스트 추가
               </button>
+              <TemplateQuickMenu
+                onSelectTemplate={(prompt) => setInputText(prompt)}
+              />
               <ModelSelector
                 value={selectedModel}
                 onChange={onModelChange ?? (() => undefined)}

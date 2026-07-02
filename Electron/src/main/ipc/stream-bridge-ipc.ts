@@ -30,6 +30,7 @@ import {
   STREAM_TOOL_RESULT_CHANNEL,
   STREAM_INTERLUDE_CHANNEL,
   STREAM_DONE_CHANNEL,
+  STREAM_ERROR_CHANNEL,
   type StreamParser,
   type CodexStreamParser,
 } from "../cli/stream-parser";
@@ -225,7 +226,8 @@ async function streamGeminiDirect(
  * @param args             추가 인자
  * @param reasoningEffort  추론 강도
  * @param provider         LLM 프로바이더 ("claude" | "gemini"). ask 커맨드 기본값: "claude"
- * @param model            모델 ID. "echo" / "echo-reverse"는 로컈 테스트 처리.
+ * @param model            모델 ID. "echo" / "echo-reverse"는 로컬 테스트 처리.
+ * @param persona          역할 페르소나 ID (prompts/{persona}.md). 제공 시 exec 메시지에 역할 지시를 주입.
  */
 export function startAgentStream(
   command: string,
@@ -233,6 +235,7 @@ export function startAgentStream(
   reasoningEffort: ReasoningEffort = "standard",
   provider?: string,
   model?: string,
+  persona?: string,
 ): void {
   // 기존 세션 정리
   if (_activeSession) {
@@ -287,7 +290,12 @@ export function startAgentStream(
     // --ephemeral: 세션 파일 디스크 미저장
     // --skip-git-repo-check: git 저장소 체크 생략
     const modelArgs = model && model !== "auto" ? ["--model", model] : [];
-    const execArgs = ["--json", "--ephemeral", "--skip-git-repo-check", "-C", ".", ...modelArgs, ...args];
+    // 페르소나 선택 시 역할 프롬프트(prompts/{persona}.md)를 따르도록 메시지에 지시 주입
+    const personaArgs =
+      persona && args.length > 0
+        ? [`prompts/${persona}.md 의 역할 페르소나로서 응답해줘.\n\n${args[0]}`, ...args.slice(1)]
+        : args;
+    const execArgs = ["--json", "--ephemeral", "--skip-git-repo-check", "-C", ".", ...modelArgs, ...personaArgs];
 
     const execHandle = executeCommand({
       command: "exec",
@@ -323,6 +331,8 @@ export function startAgentStream(
       },
       onStreamError: (e) => {
         sessionLogger.logError(e.message);
+        // 실패 원인을 Renderer로 전달하여 "Stream finished." 대신 표시되도록 함
+        broadcastToRenderers(STREAM_ERROR_CHANNEL, { message: e.message });
       },
       onRawLine: (line) => {
         sessionLogger.logSystemMessage(line);
@@ -464,9 +474,9 @@ export function registerStreamBridgeIpc(): void {
     AGENT_STREAM_START_CHANNEL,
     (
       _event,
-      payload: { command: string; args?: string[]; reasoningEffort?: ReasoningEffort; provider?: string; model?: string },
+      payload: { command: string; args?: string[]; reasoningEffort?: ReasoningEffort; provider?: string; model?: string; persona?: string },
     ) => {
-      const { command, args = [], reasoningEffort = "standard", provider, model } = payload;
+      const { command, args = [], reasoningEffort = "standard", provider, model, persona } = payload;
       // 스트리밍 시작 → lifecycle 상태를 running으로 즉시 업데이트
       broadcastToRenderers("omx:lifecycle-change", {
         status: "running",
@@ -474,7 +484,7 @@ export function registerStreamBridgeIpc(): void {
         mergedModes: [command],
         updatedAt: new Date().toISOString(),
       });
-      startAgentStream(command, args, reasoningEffort, provider, model);
+      startAgentStream(command, args, reasoningEffort, provider, model, persona);
       return { ok: true };
     },
   );

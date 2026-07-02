@@ -68,15 +68,15 @@ flowchart TD
 | **Electron Main** | spawn 제어, IPC 브로킹, 상태 감시, 이벤트 브로드캐스트 | `child_process.spawn`, chokidar, Zod, readline |
 | **Renderer** | 무상태 뷰, IPC 구독 → React State 1:1 매핑 | React, contextBridge, Rehydration |
 
-### 🏗️ 전체 구조 (3 Phase, 8 Milestone, 23 티켓)
+### 🏗️ 전체 구조 (3 Phase, 9 Milestone, 32 티켓)
 
 | Phase | 목표 | 핵심 모듈 |
 |-------|------|----------|
 | **Phase 1** (EL-201~208) | 제어 평면 완성 | EnvChecker, CLIWrapper, EnvelopeParser, TaskService, MCPBridge, HookTailer, EventDispatcher |
 | **Phase 2** (EL-211~219) | 스트리밍 UX 완성 | StreamParser, StdinWriter, InterludeTriager, StateWatcher, ChatContainer, LifecycleDashboard, TaskTimeline |
-| **Phase 3** (EL-221~226) | 고도화 안정화 | WikiWrapper, AdapterProbe, MultiStateValidator, DriftDetector, UI Integration |
+| **Phase 3** (EL-221~239) | 고도화 안정화 및 PI 페르소나 | WikiWrapper, AdapterProbe, MultiStateValidator, PI PL/AA 전문 시스템(Skills, Prompts), As-Is L6·7종 산출물, 역공학 분석, 공수산정 |
 
-> 티켓 번호는 EL-209, EL-210, EL-220을 예비 슬롯으로 비워 두어 총 23개로 관리한다.
+> 예비 슬롯(EL-209, EL-210, EL-220, EL-227~230)을 고려하여 일련번호를 관리한다.
 
 
 ### ⚠️ 5대 불변 규칙 (PR 필수 체크)
@@ -416,6 +416,17 @@ type StreamEnvelope =
 - [ ] **EL-224** `src/main/state/multi-state-validator.ts` — 복합 상태 + Deferred 스킬 분리
 - [ ] **EL-225** `src/main/ops/drift-detector.ts` — 로그-카탈로그 Drift 감지 + 복구 버튼
 - [ ] **EL-226** E2E 테스트 스위트 + 릴리즈 게이트 자동화
+
+### Phase 3 — Milestone 9 (SP-33) : PI 컨설팅 PL/AA 페르소나 통합
+- [x] **EL-231** `prompts/pi-architect.md` — PI PL & AA 페르소나 시스템 프롬프트 정의 (prompts 컴벤션 준수)
+- [x] **EL-232** `missions/pi-consulting/mission.md` — AS-IS 분석 및 TO-BE 핵심 아키텍처 도출 워크플로우
+- [x] **EL-233** `skills/pi-architecture/SKILL.md` — 아키텍처 설계, 프로세스 매핑 전용 스킬 등록
+- [x] **EL-234** `templates/pi-consulting/` — 산출물(ADR, WBS, Gap Analysis, API명세) 템플릿 제작
+- [x] **EL-235** UI 통합 — 데스크톱 앱 내 PI 페르소나 변경 및 템플릿 선택기 노출
+- [x] **EL-236** AS-IS Level 6 신규 산출물 — 구현/데이터(CRUD, 업무규칙, I/F) 분석 및 설계 템플릿 표준화
+- [x] **EL-237** AS-IS 표준 산출물 7종 — 어플리케이션 아키텍처/화면·보고서 목록/프로그램 목록/테이블 명세/테이블 상세/인덱스 상세/인터페이스 목록 템플릿화 및 ID 추적 체계
+- [x] **EL-238** 역공학 분석 산출물 — 프로그램 목록/CallTree(Depth6)/의존관계/CRUD/Data Lineage/영향도 (ChangeMiner 기반)
+- [x] **EL-239** 공수산정 산출물 — 화면-서비스 호출관계/서비스 난이도/개발공수 F/W/M·M 마일스톤
 
 ---
 
