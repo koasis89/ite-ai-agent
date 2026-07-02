@@ -95,7 +95,10 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "docxtemplater": "^3.69.0",
+    "exceljs": "^4.4.0",
     "pdfjs-dist": "^6.0.227",
+    "pizzip": "^3.2.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-markdown": "^10.1.0",
@@ -106,6 +109,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
+    "@types/exceljs": "^0.5.3",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

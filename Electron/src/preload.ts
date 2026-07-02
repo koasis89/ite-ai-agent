@@ -49,6 +49,19 @@ const electronAPI = {
     clear: () => ipcRenderer.invoke("omx:gemini-key:clear") as Promise<{ ok: boolean }>,
     getStatus: () => ipcRenderer.invoke("omx:gemini-key:status") as Promise<{ available: boolean }>,
   },
+
+  /** EL-241: AI 답변을 오피스 파일(.xlsx/.docx)로 내보내기 */
+  exportDocument: (payload: {
+    fileType: "xlsx" | "docx";
+    rawContent: string;
+    defaultFileName?: string;
+  }) =>
+    ipcRenderer.invoke("omx:export-document", payload) as Promise<{
+      ok: boolean;
+      filePath?: string;
+      error?: string;
+      cancelled?: boolean;
+    }>,
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

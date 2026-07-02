@@ -1,0 +1,21 @@
+{
+  "template": "WBS-Template_표준양식.xlsx",
+  "sheets": [
+    {
+      "name": "WBS상세",
+      "headerRow": 7,
+      "dataStartRow": 8,
+      "columns": [
+        {"idx": 1, "field": "wbsId", "type": "string"},
+        {"idx": 2, "field": "depth1", "type": "string"},
+        {"idx": 3, "field": "depth2", "type": "string"},
+        {"idx": 4, "field": "task", "type": "string"},
+        {"idx": 5, "field": "owner", "type": "string"},
+        {"idx": 6, "field": "startDate", "type": "string"},
+        {"idx": 7, "field": "endDate", "type": "string"},
+        {"idx": 8, "field": "effort", "type": "number"},
+        {"idx": 9, "field": "status", "type": "boolean"}
+      ]
+    }
+  ]
+}

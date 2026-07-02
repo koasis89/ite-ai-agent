@@ -1,0 +1,16 @@
+{
+  "template": "Effort-Estimation_표준양식.xlsx",
+  "sheets": [
+    {
+      "name": "공수산정",
+      "headerRow": 5,
+      "dataStartRow": 6,
+      "columns": [
+        {"idx": 1, "field": "wbsId", "type": "string"},
+        {"idx": 2, "field": "task", "type": "string"},
+        {"idx": 3, "field": "owner", "type": "string"},
+        {"idx": 8, "field": "effort", "type": "number"}
+      ]
+    }
+  ]
+}

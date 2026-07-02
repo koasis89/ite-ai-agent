@@ -163,10 +163,19 @@ const KIND_LABEL: Record<InterludePayload["kind"], string> = {
   "needs-input":        "입력 컨텍스트 필요",
 };
 
-// ─── 복사 버튼 컴포넌트 ──────────────────────────────────────────────────────
+// ─── 복사 및 표준오피스 내보내기 컴포넌트 ───────────────────────────────────
 
-const CopyButton: React.FC<{ content: string }> = ({ content }) => {
+const ExportActions: React.FC<{ content: string }> = ({ content }) => {
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // GFM 테이블 탐색 (단순 | 감지 및 정렬 구분선 체크)
+  const hasTable = content.includes("|") && /\|[-: ]+\|/.test(content);
+  // ADR 혹은 API 세부 검사
+  const isADR = content.toUpperCase().includes("ADR");
+  const isAPI = content.toUpperCase().includes("API") || content.includes("엔드포인트") || content.includes("요청");
+  const hasWordCandidate = isADR || isAPI;
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(content);
@@ -174,8 +183,126 @@ const CopyButton: React.FC<{ content: string }> = ({ content }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleExport = async (fileType: "xlsx" | "docx") => {
+    setLoading(true);
+    setResult(null);
+    try {
+      let templateName: string | undefined = undefined;
+      let defaultFileName = `omx-export-${new Date().toISOString().slice(0, 10)}`;
+
+      if (fileType === "xlsx") {
+        if (content.toUpperCase().includes("WBS")) {
+          templateName = "WBS-Template_표준양식.xlsx";
+          defaultFileName = "WBS-상출물";
+        } else if (content.includes("공수")) {
+          templateName = "Effort-Estimation_표준양식.xlsx";
+          defaultFileName = "공수산정-상출물";
+        } else if (content.includes("갭분석") || content.includes("Gap")) {
+          templateName = "Gap-Analysis-Report_표준양식.xlsx";
+          defaultFileName = "갭분석-상출물";
+        }
+      } else if (fileType === "docx") {
+        if (isADR) {
+          templateName = "ADR-Template_표준양식.docx";
+          defaultFileName = `ADR-${new Date().toISOString().slice(0, 10)}`;
+        } else {
+          templateName = "API-Spec-Standard_표준양식.docx";
+          defaultFileName = `API-Spec-${new Date().toISOString().slice(0, 10)}`;
+        }
+      }
+
+      const api = window.electronAPI;
+      if (!api || !api.exportDocument) {
+        throw new Error("Electron API (exportDocument)가 활성화되어 있지 않습니다.");
+      }
+
+      const res = await api.exportDocument({
+        fileType,
+        rawContent: content,
+        defaultFileName,
+        templateName,
+      });
+
+      if (res.ok) {
+        setResult({ ok: true, message: `성공: ${res.filePath}` });
+      } else if (res.cancelled) {
+        // 취소 시 조용히 무시
+      } else {
+        throw new Error(res.error || "취소됨");
+      }
+    } catch (err: any) {
+      setResult({ ok: false, message: `실패: ${err.message}` });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setResult(null), 4000);
+    }
+  };
+
   return (
-    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "4px" }}>
+    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+      {result && (
+        <span style={{ 
+          fontSize: "11px", 
+          padding: "2px 6px", 
+          borderRadius: "4px",
+          backgroundColor: result.ok ? "#ecfdf5" : "#fef2f2",
+          color: result.ok ? "#059669" : "#dc2626",
+          border: `1px solid ${result.ok ? "#a7f3d0" : "#fecaca"}`,
+          maxWidth: "200px",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        }} title={result.message}>
+          {result.message}
+        </span>
+      )}
+      
+      {hasTable && (
+        <button
+          onClick={() => handleExport("xlsx")}
+          disabled={loading}
+          title="엑셀 표준양식 컴포지션 내보내기"
+          style={{
+            background: "#ecfdf5",
+            border: "1px solid #10b981",
+            color: "#047857",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "11px",
+            padding: "2px 8px",
+            fontWeight: "bold",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          📈 {loading ? "처리중.." : "엑셀 저장"}
+        </button>
+      )}
+
+      {hasWordCandidate && (
+        <button
+          onClick={() => handleExport("docx")}
+          disabled={loading}
+          title="워드 표준양식 지문 치환 내보내기"
+          style={{
+            background: "#eff6ff",
+            border: "1px solid #3b82f6",
+            color: "#1d4ed8",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "11px",
+            padding: "2px 8px",
+            fontWeight: "bold",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          📄 {loading ? "처리중.." : "워드 저장"}
+        </button>
+      )}
+
       <button
         onClick={handleCopy}
         title="내용 복사"
@@ -200,7 +327,7 @@ const CopyButton: React.FC<{ content: string }> = ({ content }) => {
 
 // ─── ChatContainer 컴포넌트 ───────────────────────────────────────────────────
 
-interface Message {
+export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
@@ -263,7 +390,10 @@ interface ChatContainerProps {
   streamingText?: string;
   /** 스트림 에러 목록 */
   streamErrors?: string[];  /** Gemini API 키 설정 여부 — ModelSelector로 전달하여 Gemini 항목 활성화 제어 */
-  geminiKeyAvailable?: boolean;}
+  geminiKeyAvailable?: boolean;
+  /** 메시지 배열 변경 콜백 (히스토리 저장 연동) */
+  onMessagesChange?: (messages: Message[]) => void;
+}
 
 /**
  * ChatContainer
@@ -279,6 +409,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   streamingText = "",
   streamErrors = [],
   geminiKeyAvailable = false,
+  onMessagesChange,
 }) => {
   // ─── 상태 ─────────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -395,6 +526,10 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    onMessagesChange?.(messages);
+  }, [messages, onMessagesChange]);
 
   // ─── 일반 채팅 전송 ───────────────────────────────────────────────────────
 
@@ -663,10 +798,10 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 {msg.content && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>}
               </div>
             ) : (
-              // assistant & system 메시지는 MdBubble과 함께 복사 버튼 제공
+              // assistant & system 메시지는 MdBubble과 함께 복사/내보내기 버튼 제공
               <>
                 <MdBubble content={msg.content} />
-                <CopyButton content={msg.content} />
+                <ExportActions content={msg.content} />
               </>
             )}
           </div>
@@ -686,7 +821,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             }}
           >
             <MdBubble content={streamingText} />
-            <CopyButton content={streamingText} />
+            <ExportActions content={streamingText} />
           </div>
         )}
         {/* 스트림 에러 표시 */}

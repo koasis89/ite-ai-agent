@@ -1,0 +1,18 @@
+{
+  "template": "Gap-Analysis-Report_표준양식.xlsx",
+  "sheets": [
+    {
+      "name": "갭분석",
+      "headerRow": 4,
+      "dataStartRow": 5,
+      "columns": [
+        {"idx": 1, "field": "idx", "type": "number"},
+        {"idx": 2, "field": "category", "type": "string"},
+        {"idx": 3, "field": "asis", "type": "string"},
+        {"idx": 4, "field": "tobe", "type": "string"},
+        {"idx": 5, "field": "gap", "type": "string"},
+        {"idx": 6, "field": "solution", "type": "string"}
+      ]
+    }
+  ]
+}

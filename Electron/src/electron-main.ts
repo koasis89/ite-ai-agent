@@ -3,6 +3,7 @@ import path from "node:path";
 import { registerAdapterIpc } from "./main/ipc/adapter-ipc";
 import { registerCliIpc } from "./main/ipc/cli-ipc";
 import { registerEnvIpc } from "./main/ipc/env-ipc";
+import { registerExportIpc } from "./main/ipc/export-ipc";
 import { registerInterludeIpc } from "./main/ipc/interlude-ipc";
 import { registerStateIpc } from "./main/ipc/state-ipc";
 import { registerStreamBridgeIpc } from "./main/ipc/stream-bridge-ipc";
@@ -18,6 +19,7 @@ function registerIpc(): void {
   registerStateIpc();
   registerStreamBridgeIpc();
   registerAdapterIpc();
+  registerExportIpc();
 }
 
 async function createWindow(): Promise<void> {
