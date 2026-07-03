@@ -38,6 +38,8 @@ export interface SkillRegistryEntry<TContract extends SkillActionContract = Skil
 
 export interface SkillRegistry {
   register(entry: SkillRegistryEntry): void;
+  registerAlias(aliasActionId: string, canonicalActionId: string): void;
+  resolveActionId(actionId: string): string | undefined;
   get(actionId: string): SkillRegistryEntry | undefined;
   has(actionId: string): boolean;
   list(): SkillRegistryEntry[];
