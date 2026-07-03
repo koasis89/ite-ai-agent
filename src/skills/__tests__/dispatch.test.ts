@@ -57,6 +57,45 @@ describe('skill dispatcher', () => {
     }
   });
 
+  it('resolves registered aliases to canonical action ids', async () => {
+    const contract = createSkillActionContract({
+      skillId: 'demo',
+      actionId: 'demo.canonical',
+      inputSchema: z.object({ value: z.string().min(1) }),
+      outputSchema: z.object({ echoed: z.string() }),
+    });
+
+    const registry = new InMemorySkillRegistry();
+    registry.register({
+      skill: {
+        name: 'demo',
+        category: 'utility',
+        status: 'active',
+      },
+      executor: {
+        contract,
+        execute(input: any) {
+          return { echoed: input.value };
+        },
+      },
+    });
+    registry.registerAlias('demo.alias', 'demo.canonical');
+
+    const result = await dispatchSkillAction(
+      registry,
+      'demo.alias',
+      { value: 'aliased' },
+      { requestId: 'req-2-alias', workspaceRoot: process.cwd() },
+    );
+
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+
+    assert.equal(result.meta?.resolvedActionId, 'demo.canonical');
+    assert.equal(result.meta?.redirected, true);
+    assert.deepEqual(result.data, { echoed: 'aliased' });
+  });
+
   it('returns INPUT_INVALID when payload fails input schema validation', async () => {
     const contract = createSkillActionContract({
       skillId: 'demo',
