@@ -14,17 +14,23 @@ export async function dispatchSkillAction(
   context: SkillExecutionContext,
   policyOptions?: SkillExecutionPolicyOptions,
 ): Promise<SkillExecutionResult<unknown>> {
-  const entry = registry.get(actionId);
+  const resolvedActionId = registry.resolveActionId(actionId);
+  const entry = resolvedActionId ? registry.get(resolvedActionId) : undefined;
   if (!entry) {
     return {
       ok: false,
       error: createSkillErrorEnvelope({
         code: 'CONTRACT_NOT_FOUND',
         message: `Skill action not found: ${actionId}`,
-        details: { actionId },
+        details: {
+          actionId,
+          resolvedActionId,
+        },
       }),
     };
   }
+
+  const redirectedByAlias = resolvedActionId !== undefined && resolvedActionId !== actionId;
 
   const policy = evaluateSkillExecutionPolicy(entry.skill, policyOptions);
   if (!policy.executable) {
@@ -35,6 +41,7 @@ export async function dispatchSkillAction(
         message: `Skill is not executable: ${entry.skill.name}`,
         details: {
           actionId,
+          resolvedActionId,
           skill: entry.skill.name,
           status: entry.skill.status,
           reason: policy.reason,
@@ -53,8 +60,9 @@ export async function dispatchSkillAction(
       data: validatedOutput,
       meta: {
         actionId,
+        resolvedActionId,
         requestId: context.requestId,
-        redirected: policy.redirected,
+        redirected: policy.redirected || redirectedByAlias,
         resolvedSkillName: policy.resolvedSkillName,
       },
     };
@@ -64,6 +72,7 @@ export async function dispatchSkillAction(
       error: mapUnknownSkillError(error),
       meta: {
         actionId,
+        resolvedActionId,
         requestId: context.requestId,
       },
     };
