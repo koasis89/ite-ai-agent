@@ -2,14 +2,50 @@
   "template": "Effort-Estimation_표준양식.xlsx",
   "sheets": [
     {
-      "name": "공수산정",
-      "headerRow": 5,
-      "dataStartRow": 6,
+      "name": "18.화면서비스호출",
+      "headerRow": 1,
+      "dataStartRow": 2,
       "columns": [
-        {"idx": 1, "field": "wbsId", "type": "string"},
-        {"idx": 2, "field": "task", "type": "string"},
-        {"idx": 3, "field": "owner", "type": "string"},
-        {"idx": 8, "field": "effort", "type": "number"}
+        {"idx": 1, "field": "screenId", "type": "string"},
+        {"idx": 2, "field": "screenName", "type": "string"},
+        {"idx": 3, "field": "app", "type": "string"},
+        {"idx": 4, "field": "service", "type": "string"},
+        {"idx": 5, "field": "serviceName", "type": "string"},
+        {"idx": 6, "field": "operation", "type": "string"},
+        {"idx": 7, "field": "operationName", "type": "string"},
+        {"idx": 8, "field": "callCount", "type": "number"},
+        {"idx": 9, "field": "lastCalledAt", "type": "string"}
+      ]
+    },
+    {
+      "name": "19.서비스난이도",
+      "headerRow": 1,
+      "dataStartRow": 2,
+      "columns": [
+        {"idx": 1, "field": "app", "type": "string"},
+        {"idx": 2, "field": "service", "type": "string"},
+        {"idx": 3, "field": "serviceName", "type": "string"},
+        {"idx": 4, "field": "operation", "type": "string"},
+        {"idx": 5, "field": "operationName", "type": "string"},
+        {"idx": 6, "field": "type", "type": "string"},
+        {"idx": 7, "field": "create", "type": "string"},
+        {"idx": 8, "field": "read", "type": "string"},
+        {"idx": 9, "field": "update", "type": "string"},
+        {"idx": 10, "field": "delete", "type": "string"}
+      ]
+    },
+    {
+      "name": "21.MM마일스톤",
+      "headerRow": 1,
+      "dataStartRow": 2,
+      "columns": [
+        {"idx": 1, "field": "category", "type": "string"},
+        {"idx": 2, "field": "devType", "type": "string"},
+        {"idx": 3, "field": "analysis", "type": "number"},
+        {"idx": 4, "field": "design", "type": "number"},
+        {"idx": 5, "field": "development", "type": "number"},
+        {"idx": 6, "field": "test", "type": "number"},
+        {"idx": 7, "field": "transition", "type": "number"}
       ]
     }
   ]

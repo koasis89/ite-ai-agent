@@ -68,9 +68,99 @@ const electronAPI = {
   getSkillCatalog: () =>
     ipcRenderer.invoke("omx:skill-catalog:get") as Promise<{
       ok: boolean;
-      data?: Array<{ skillId?: string; name: string; enabled: boolean }>;
+      data?: Array<{ skillId?: string; name: string; category: string; status: string; canonical?: string; enabled: boolean; executable: boolean; warnings: string[] }>;
       error?: string;
     }>,
+
+  getSkillCatalogWithPolicy: (payload?: { includeDeprecated?: boolean }) =>
+    ipcRenderer.invoke("omx:skill-catalog:get", payload) as Promise<{
+      ok: boolean;
+      data?: Array<{ skillId?: string; name: string; category: string; status: string; canonical?: string; enabled: boolean; executable: boolean; warnings: string[] }>;
+      error?: string;
+    }>,
+
+  invokeSkill: (payload: {
+    actionId: string;
+    payload?: unknown;
+    context?: { requestId?: string; workspaceRoot?: string; model?: string; actor?: string };
+    policy?: { allowDeprecated?: boolean; allowInternal?: boolean };
+  }) =>
+    ipcRenderer.invoke("omx:skills:invoke", payload) as Promise<{
+      ok: boolean;
+      data?: unknown;
+      error?: { code: string; message: string; details?: Record<string, unknown>; recoverable?: boolean };
+      meta?: Record<string, unknown>;
+    }>,
+
+  listSkillContracts: () =>
+    ipcRenderer.invoke("omx:skills:list") as Promise<{
+      ok: boolean;
+      data?: Array<{
+        skillId: string;
+        name: string;
+        actionId: string;
+        category: "execution" | "planning" | "shortcut" | "utility";
+        status: "active" | "alias" | "merged" | "deprecated" | "internal";
+        canonical?: string;
+        executable: boolean;
+        warnings: string[];
+        supported: boolean;
+      }>;
+      error?: string;
+    }>,
+
+  getSkillExecutionPolicy: (payload: {
+    skillName: string;
+    allowDeprecated?: boolean;
+    allowInternal?: boolean;
+  }) =>
+    ipcRenderer.invoke("omx:skills:status-policy", payload) as Promise<{
+      ok: boolean;
+      data?: {
+        skillName: string;
+        status: "active" | "alias" | "merged" | "deprecated" | "internal";
+        category: "execution" | "planning" | "shortcut" | "utility";
+        canonical?: string;
+        executable: boolean;
+        resolvedSkillName: string;
+        requestedSkillName: string;
+        redirected: boolean;
+        warnings: string[];
+        reason?: "deprecated_skill" | "internal_skill" | "missing_canonical" | "unsupported_status";
+      };
+      error?: string;
+    }>,
+
+  getSkillObservability: () =>
+    ipcRenderer.invoke("omx:skills:observability:get") as Promise<{
+      ok: boolean;
+      data?: {
+        generatedAt: string;
+        totalInvocations: number;
+        failureByCode: Record<string, number>;
+        deprecatedCalls: number;
+        mergedCalls: number;
+        internalCalls: number;
+        internalMissingActorCalls: number;
+        deprecatedCallRatio: number;
+        mergedCallRatio: number;
+        recentExecutions: Array<Record<string, unknown>>;
+        recentAudits: Array<Record<string, unknown>>;
+      };
+      error?: string;
+    }>,
+
+  onSkillFeedback: (
+    callback: Listener<{
+      actionId: string;
+      requestId: string;
+      ok: boolean;
+      skillId?: string;
+      resolvedActionId?: string;
+      message: string;
+      errorCode?: string;
+    }>,
+  ) => on("omx:skills:feedback", callback),
 
   checkWorkspaceAccess: () =>
     ipcRenderer.invoke("omx:workspace-access:check") as Promise<{

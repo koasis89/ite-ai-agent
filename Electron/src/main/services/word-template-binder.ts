@@ -32,6 +32,60 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function resolveRawAnswerText(data: Record<string, unknown>): string {
+  const candidates = [
+    data.rawContent,
+    data.content,
+    data.answer,
+    data.response,
+    data.body,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return "";
+}
+
+function appendRawAnswerToDocx(doc: Docxtemplater, rawText: string): void {
+  if (!rawText) return;
+
+  const zip = doc.getZip();
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) return;
+
+  const xml = docFile.asText();
+  if (!xml.includes("</w:body>")) return;
+
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) return;
+
+  const capped = lines.slice(0, 80);
+  const paragraphs = [
+    '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">AI 답변 원문</w:t></w:r></w:p>',
+    ...capped.map((line) => `<w:p><w:r><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r></w:p>`),
+  ].join("");
+
+  const merged = xml.replace("</w:body>", `${paragraphs}</w:body>`);
+  zip.file("word/document.xml", merged);
+}
+
 function expandValueAliases(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => expandValueAliases(item));
@@ -525,6 +579,8 @@ export async function bindDataToWordTemplate(
     // 렌더링 충돌은 호출자에게 명시적으로 전파
     throw new Error(`워드 파일 렌더링 중 구조 충돌이 발생했습니다: ${error.message}`);
   }
+
+  appendRawAnswerToDocx(doc, resolveRawAnswerText(renderData));
 
   const buffer = doc.getZip().generate({ type: "nodebuffer" });
   await writeFile(savePath, buffer);

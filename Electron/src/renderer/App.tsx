@@ -27,6 +27,16 @@ function readTokenText(payload: StreamToken): string {
 }
 
 export default function App(): React.ReactElement {
+  const panel = new URLSearchParams(window.location.search).get("panel");
+
+  if (panel === "skills") {
+    return (
+      <div style={{ height: "100vh", padding: "12px", boxSizing: "border-box", background: "#f8fafc" }}>
+        <SkillCatalogPanel />
+      </div>
+    );
+  }
+
   const [streamText, setStreamText] = useState("");
   const [streamErrors, setStreamErrors] = useState<string[]>([]);
   // onStreamDone 콜백 클로저에서 최신 에러를 읽기 위한 ref (state는 마운트 시점 값으로 캡처됨)
@@ -228,7 +238,6 @@ export default function App(): React.ReactElement {
             onMessagesChange={handleMessagesChange}
           />
         </section>
-        <SkillCatalogPanel />
         <LifecycleDashboard />
       </main>
 

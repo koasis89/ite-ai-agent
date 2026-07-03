@@ -43,9 +43,9 @@ export const DEFAULT_EXCEL_MANIFESTS: Record<string, ExcelTemplateManifest> = {
     template: "WBS-Template_표준양식.xlsx",
     sheets: [
       {
-        name: "WBS상세",
-        headerRow: 7,
-        dataStartRow: 8,
+        name: "2.WBS상세",
+        headerRow: 1,
+        dataStartRow: 2,
         columns: [
           { idx: 1, field: "wbsId", type: "string" },
           { idx: 2, field: "depth1", type: "string" },
@@ -53,9 +53,9 @@ export const DEFAULT_EXCEL_MANIFESTS: Record<string, ExcelTemplateManifest> = {
           { idx: 4, field: "task", type: "string" },
           { idx: 5, field: "owner", type: "string" },
           { idx: 6, field: "startDate", type: "string" },
-          { idx: 7, field: "endDate", type: "string" },
-          { idx: 8, field: "effort", type: "number" },
-          { idx: 9, field: "status", type: "boolean" },
+          { idx: 7, field: "effort", type: "number" },
+          { idx: 8, field: "endDate", type: "string" },
+          { idx: 9, field: "status", type: "string" },
         ],
       },
     ],
@@ -64,14 +64,50 @@ export const DEFAULT_EXCEL_MANIFESTS: Record<string, ExcelTemplateManifest> = {
     template: "Effort-Estimation_표준양식.xlsx",
     sheets: [
       {
-        name: "공수산정",
-        headerRow: 5,
-        dataStartRow: 6,
+        name: "18.화면서비스호출",
+        headerRow: 1,
+        dataStartRow: 2,
         columns: [
-          { idx: 1, field: "wbsId", type: "string" },
-          { idx: 2, field: "task", type: "string" },
-          { idx: 3, field: "owner", type: "string" },
-          { idx: 4, field: "effort", type: "number" },
+          { idx: 1, field: "screenId", type: "string" },
+          { idx: 2, field: "screenName", type: "string" },
+          { idx: 3, field: "app", type: "string" },
+          { idx: 4, field: "service", type: "string" },
+          { idx: 5, field: "serviceName", type: "string" },
+          { idx: 6, field: "operation", type: "string" },
+          { idx: 7, field: "operationName", type: "string" },
+          { idx: 8, field: "callCount", type: "number" },
+          { idx: 9, field: "lastCalledAt", type: "string" },
+        ],
+      },
+      {
+        name: "19.서비스난이도",
+        headerRow: 1,
+        dataStartRow: 2,
+        columns: [
+          { idx: 1, field: "app", type: "string" },
+          { idx: 2, field: "service", type: "string" },
+          { idx: 3, field: "serviceName", type: "string" },
+          { idx: 4, field: "operation", type: "string" },
+          { idx: 5, field: "operationName", type: "string" },
+          { idx: 6, field: "type", type: "string" },
+          { idx: 7, field: "create", type: "string" },
+          { idx: 8, field: "read", type: "string" },
+          { idx: 9, field: "update", type: "string" },
+          { idx: 10, field: "delete", type: "string" },
+        ],
+      },
+      {
+        name: "21.MM마일스톤",
+        headerRow: 1,
+        dataStartRow: 2,
+        columns: [
+          { idx: 1, field: "category", type: "string" },
+          { idx: 2, field: "devType", type: "string" },
+          { idx: 3, field: "analysis", type: "number" },
+          { idx: 4, field: "design", type: "number" },
+          { idx: 5, field: "development", type: "number" },
+          { idx: 6, field: "test", type: "number" },
+          { idx: 7, field: "transition", type: "number" },
         ],
       },
     ],
@@ -80,16 +116,18 @@ export const DEFAULT_EXCEL_MANIFESTS: Record<string, ExcelTemplateManifest> = {
     template: "Gap-Analysis-Report_표준양식.xlsx",
     sheets: [
       {
-        name: "갭분석",
-        headerRow: 4,
-        dataStartRow: 5,
+        name: "2.Gap매트릭스",
+        headerRow: 1,
+        dataStartRow: 2,
         columns: [
-          { idx: 1, field: "idx", type: "number" },
+          { idx: 1, field: "gapId", type: "string" },
           { idx: 2, field: "category", type: "string" },
           { idx: 3, field: "asis", type: "string" },
           { idx: 4, field: "tobe", type: "string" },
           { idx: 5, field: "gap", type: "string" },
-          { idx: 6, field: "solution", type: "string" },
+          { idx: 6, field: "impact", type: "string" },
+          { idx: 7, field: "priority", type: "string" },
+          { idx: 8, field: "relatedId", type: "string" },
         ],
       },
     ],
@@ -165,11 +203,59 @@ export async function bindDataToExcelTemplate(
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(templatePath);
 
-  // 시트 매칭 (시트명 확인 → 없을 시 첫 번째 시트로 대피)
+  applySheetBinding(workbook, data, sheetConfig);
+
+  // 수식 계산 캐시 재구성 권고 및 물리 파일 동적 쓰기 기동
+  await workbook.xlsx.writeFile(savePath);
+}
+
+/**
+ * 하나의 템플릿 워크북에 여러 시트를 한 번에 바인딩한 뒤 단일 파일로 저장한다.
+ * 다중 시트 산출문서(예: 공수산정)의 시트별 표 데이터를 각각 주입할 때 사용한다.
+ *
+ * @param templatePath 원본 .xlsx 템플릿 절대 경로
+ * @param savePath 최종 저장될 파일 절대 경로
+ * @param bindings 시트별 (설정 + 정규화 레코드) 목록
+ */
+export async function bindMultipleSheetsToExcelTemplate(
+  templatePath: string,
+  savePath: string,
+  bindings: { sheetConfig: ExcelSheetConfig; data: Record<string, any>[] }[],
+): Promise<void> {
+  if (!existsSync(templatePath)) {
+    throw new Error(`엑셀 템플릿 파일을 찾을 수 없습니다: ${templatePath}`);
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(templatePath);
+
+  for (const { sheetConfig, data } of bindings) {
+    applySheetBinding(workbook, data, sheetConfig);
+  }
+
+  await workbook.xlsx.writeFile(savePath);
+}
+
+/**
+ * 열려 있는 워크북 인스턴스의 단일 시트에 정규화 레코드를 주입한다.
+ * (스타일 보존 + 필요 시 행 삽입) 저장은 호출자가 담당한다.
+ */
+function applySheetBinding(
+  workbook: ExcelJS.Workbook,
+  data: Record<string, any>[],
+  sheetConfig: ExcelSheetConfig,
+): void {
+  // 시트 매칭 (시트명 확인 → 없을 시 메타데이터 시트를 건너뛴 첫 데이터 시트로 대피)
   let worksheet = workbook.getWorksheet(sheetConfig.name);
   if (!worksheet) {
-    console.warn(`시트 '${sheetConfig.name}'을 찾을 수 없어, 첫 시트 '${workbook.worksheets[0].name}'을 적용합니다.`);
-    worksheet = workbook.worksheets[0];
+    // '문서정보' 등 메타데이터 시트를 데이터로 덮어쓰지 않도록 첫 번째 데이터 시트를 선택한다.
+    const metadataSheetNames = new Set(["문서정보"]);
+    const fallbackWorksheet =
+      workbook.worksheets.find((ws) => !metadataSheetNames.has(ws.name)) ?? workbook.worksheets[0];
+    console.warn(
+      `시트 '${sheetConfig.name}'을 찾을 수 없어, 데이터 시트 '${fallbackWorksheet.name}'을 적용합니다.`,
+    );
+    worksheet = fallbackWorksheet;
   }
 
   const { dataStartRow, columns } = sheetConfig;
@@ -178,13 +264,13 @@ export async function bindDataToExcelTemplate(
   // 오리지널 스타일 데이터 소스 로우 백업 (복사 레퍼런스용)
   const sourceRow = worksheet.getRow(dataStartRow);
   const sourceCellStyles = new Map<number, ExcelJS.Cell>();
-  
+
   for (let colIdx = 1; colIdx <= maxColIndex; colIdx++) {
     sourceCellStyles.set(colIdx, sourceRow.getCell(colIdx));
   }
 
   // 1. 필요한 경우 행 삽입
-  // 기본적으로 템플릿에 데이터가 한 줄 이상 있을 것이므로, 
+  // 기본적으로 템플릿에 데이터가 한 줄 이상 있을 것이므로,
   // 입력 레코드 수가 1을 넘어갈 때 한 행 한 행 하단 밀어내기 삽입을 가동한다.
   if (data.length > 1) {
     // exceljs insertRows에 전달할 rows는 이중 배열이어야 하므로 빈 행들의 배열을 구성하여 삽입 기동
@@ -228,13 +314,10 @@ export async function bindDataToExcelTemplate(
     if (sourceRow.height) {
       targetRow.height = sourceRow.height;
     }
-    
+
     // 행 변경사항 저장 지시
     targetRow.commit();
   }
-
-  // 수식 계산 캐시 재구성 권고 및 물리 파일 동적 쓰기 기동
-  await workbook.xlsx.writeFile(savePath);
 }
 
 /** Excel.worksheet 가용 열 한계치 또는 매핑 열 중 더 먼 가상 너비를 계측한다. */

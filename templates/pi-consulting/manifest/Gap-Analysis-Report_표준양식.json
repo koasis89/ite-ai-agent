@@ -2,16 +2,18 @@
   "template": "Gap-Analysis-Report_표준양식.xlsx",
   "sheets": [
     {
-      "name": "갭분석",
-      "headerRow": 4,
-      "dataStartRow": 5,
+      "name": "2.Gap매트릭스",
+      "headerRow": 1,
+      "dataStartRow": 2,
       "columns": [
-        {"idx": 1, "field": "idx", "type": "number"},
+        {"idx": 1, "field": "gapId", "type": "string"},
         {"idx": 2, "field": "category", "type": "string"},
         {"idx": 3, "field": "asis", "type": "string"},
         {"idx": 4, "field": "tobe", "type": "string"},
         {"idx": 5, "field": "gap", "type": "string"},
-        {"idx": 6, "field": "solution", "type": "string"}
+        {"idx": 6, "field": "impact", "type": "string"},
+        {"idx": 7, "field": "priority", "type": "string"},
+        {"idx": 8, "field": "relatedId", "type": "string"}
       ]
     }
   ]

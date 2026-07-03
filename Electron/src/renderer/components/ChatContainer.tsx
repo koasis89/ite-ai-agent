@@ -143,6 +143,16 @@ interface InterludePayload {
   persona: "planner" | "executor" | "verifier" | "reviewer" | "unknown";
 }
 
+interface SkillFeedbackPayload {
+  actionId: string;
+  requestId: string;
+  ok: boolean;
+  skillId?: string;
+  resolvedActionId?: string;
+  message: string;
+  errorCode?: string;
+}
+
 // ─── 페르소나 뱃지 메타데이터 ────────────────────────────────────────────────
 
 const PERSONA_META: Record<
@@ -458,6 +468,19 @@ export interface Message {
   attachedFiles?: string[];
 }
 
+function isSkillFeedbackMessage(content: string): boolean {
+  return content.trimStart().startsWith("### Skill 실행 피드백");
+}
+
+function getSkillFeedbackStatus(content: string): "성공" | "실패" | null {
+  const matched = content.match(/-\s*status\s*:\s*(성공|실패)/i);
+  if (!matched || !matched[1]) {
+    return null;
+  }
+
+  return matched[1] === "성공" ? "성공" : "실패";
+}
+
 interface ContextAttachment {
   id: string;
   name: string;
@@ -645,6 +668,43 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       unsubStart();
       unsubResolved();
       unsubCancelled();
+    };
+  }, []);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onSkillFeedback) return;
+
+    const unsub = api.onSkillFeedback((payload: SkillFeedbackPayload) => {
+      const skillLabel = payload.skillId ?? payload.actionId;
+      const status = payload.ok ? "성공" : "실패";
+      const detail = payload.ok ? "" : `\n- errorCode: ${payload.errorCode ?? "unknown"}`;
+      const resolved = payload.resolvedActionId
+        ? `\n- resolvedActionId: ${payload.resolvedActionId}`
+        : "";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `skill-feedback-${Date.now()}`,
+          role: "system",
+          content: [
+            `### Skill 실행 피드백`,
+            `- skill: ${skillLabel}`,
+            `- status: ${status}`,
+            `- requestId: ${payload.requestId}`,
+            resolved ? resolved.trimStart() : "",
+            detail ? detail.trimStart() : "",
+            `- message: ${payload.message}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      ]);
+    });
+
+    return () => {
+      unsub();
     };
   }, []);
 
@@ -893,7 +953,16 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               marginBottom: "12px",
               padding: "10px 14px",
               borderRadius: "8px",
-              backgroundColor: msg.role === "user" ? "#e0e7ff" : "#f3f4f6",
+              backgroundColor:
+                msg.role === "user"
+                  ? "#e0e7ff"
+                  : msg.role === "system" && isSkillFeedbackMessage(msg.content)
+                    ? "#ecfeff"
+                    : "#f3f4f6",
+              border:
+                msg.role === "system" && isSkillFeedbackMessage(msg.content)
+                  ? "1px solid #67e8f9"
+                  : "none",
               alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
               maxWidth: "80%",
               position: "relative",
@@ -927,6 +996,52 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             ) : (
               // assistant & system 메시지는 MdBubble과 함께 복사/내보내기 버튼 제공
               <>
+                {msg.role === "system" && isSkillFeedbackMessage(msg.content) && (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        letterSpacing: "0.06em",
+                        fontWeight: 700,
+                        color: "#0c4a6e",
+                        background: "#cffafe",
+                        border: "1px solid #22d3ee",
+                        borderRadius: "999px",
+                        padding: "2px 8px",
+                      }}
+                    >
+                      SKILL FEEDBACK
+                    </span>
+                    {(() => {
+                      const status = getSkillFeedbackStatus(msg.content);
+                      if (!status) return null;
+
+                      const isSuccess = status === "성공";
+                      return (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            color: isSuccess ? "#065f46" : "#991b1b",
+                            background: isSuccess ? "#d1fae5" : "#fee2e2",
+                            border: `1px solid ${isSuccess ? "#34d399" : "#fca5a5"}`,
+                            borderRadius: "999px",
+                            padding: "2px 8px",
+                          }}
+                        >
+                          {status}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )}
                 <MdBubble content={msg.content} />
                 <ExportActions
                   content={msg.content}

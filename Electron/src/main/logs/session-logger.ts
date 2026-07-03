@@ -193,6 +193,20 @@ class SessionLogger {
   logError(message: string): void {
     this.append(`[ERROR] ${message}`);
   }
+
+  /**
+   * 스킬 실행 이벤트를 requestId 기준으로 구조화 기록한다.
+   */
+  logSkillExecutionEvent(event: Record<string, unknown>): void {
+    this.append(`[SKILL_EXEC] ${JSON.stringify(event)}`);
+  }
+
+  /**
+   * 스킬 감사(audit) 이벤트를 구조화 기록한다.
+   */
+  logSkillAuditEvent(event: Record<string, unknown>): void {
+    this.append(`[SKILL_AUDIT] ${JSON.stringify(event)}`);
+  }
 }
 
 // ─── 싱글턴 내보내기 ──────────────────────────────────────────────────────────

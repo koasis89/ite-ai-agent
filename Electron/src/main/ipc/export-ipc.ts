@@ -25,16 +25,31 @@ import * as XLSX from "xlsx";
 import {
   parseMarkdownToCustomAST,
   normalizeTableToJSON,
+  type ASTNode,
 } from "../services/markdown-normalizer";
 import {
   resolveTemplateManifest,
   bindDataToExcelTemplate,
+  bindMultipleSheetsToExcelTemplate,
+  type ExcelSheetConfig,
 } from "../services/excel-template-binder";
 import {
   extractADRTemplateData,
   extractAPISpecTemplateData,
   bindDataToWordTemplate,
 } from "../services/word-template-binder";
+import { dispatchSkillAction } from "../../../../src/skills/executor/dispatch";
+import { InMemorySkillRegistry } from "../../../../src/skills/executor/registry";
+import {
+  EXCEL_TEMPLATE_EXPORT_ACTION_ID,
+  WORD_TEMPLATE_EXPORT_ACTION_ID,
+  excelTemplateExportContract,
+  wordTemplateExportContract,
+  type ExcelTemplateExportInput,
+  type OfficeTemplateExportOutput,
+  type WordTemplateExportInput,
+} from "../../../../src/skills/contracts/actions/office-export";
+import type { SkillExecutionContext } from "../../../../src/skills/contracts/core";
 
 // ─── IPC 채널 상수 ────────────────────────────────────────────────────────────
 
@@ -75,6 +90,18 @@ type WriteResult = {
   fallbackUsed: boolean;
   fallbackReason?: string;
 };
+
+const EXCEL_SKILL_ENTRY = {
+  name: "excel",
+  category: "utility",
+  status: "active",
+} as const;
+
+const WORD_SKILL_ENTRY = {
+  name: "word",
+  category: "utility",
+  status: "active",
+} as const;
 
 function isPermissionError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
@@ -128,6 +155,34 @@ async function writeWithPermissionFallback(
 interface ParsedTable {
   header: string[];
   rows: string[][];
+}
+
+function buildFallbackTemplateRecord(
+  rawContent: string,
+  columns: Array<{ idx: number; field: string; type: "string" | "number" | "boolean" }>,
+): Record<string, unknown> {
+  const firstLine = rawContent.split(/\r?\n/).find((line) => line.trim().length > 0)?.trim() ?? "AI 답변";
+  const normalized = rawContent.replace(/\r?\n/g, " ").trim();
+
+  const record: Record<string, unknown> = {};
+  const firstStringColumn = columns.find((column) => column.type === "string");
+  if (firstStringColumn) {
+    record[firstStringColumn.field] = normalized || firstLine;
+  }
+
+  for (const column of columns) {
+    if (record[column.field] !== undefined) continue;
+
+    if (column.type === "number") {
+      record[column.field] = 0;
+    } else if (column.type === "boolean") {
+      record[column.field] = false;
+    } else {
+      record[column.field] = "";
+    }
+  }
+
+  return record;
 }
 
 /** `| a | b |` 형태의 행을 셀 배열로 분해한다. */
@@ -199,6 +254,39 @@ function buildXlsxBuffer(markdown: string): Buffer {
   }
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+function normalizeTableByColumnOrder(
+  tableNode: ASTNode,
+  requiredColumns: ExcelSheetConfig["columns"],
+): Record<string, string | number | boolean>[] {
+  if (tableNode.type !== "table" || !tableNode.children || tableNode.children.length <= 1) {
+    return [];
+  }
+
+  const rows = tableNode.children.slice(1);
+  const results: Record<string, string | number | boolean>[] = [];
+
+  for (const row of rows) {
+    if (!row.children || row.children.length === 0) continue;
+    const record: Record<string, string | number | boolean> = {};
+
+    requiredColumns.forEach((column, index) => {
+      const value = row.children?.[index]?.children?.[0]?.value?.trim() ?? "";
+      if (column.type === "number") {
+        const parsed = Number(value.replace(/[^\d.]/g, ""));
+        record[column.field] = Number.isFinite(parsed) ? parsed : 0;
+      } else if (column.type === "boolean") {
+        record[column.field] = ["true", "1", "yes", "y", "완료", "참"].includes(value.toLowerCase());
+      } else {
+        record[column.field] = value;
+      }
+    });
+
+    results.push(record);
+  }
+
+  return results;
 }
 
 // ─── 저장 다이얼로그 ──────────────────────────────────────────────────────────
@@ -278,100 +366,204 @@ async function handleExportDocument(raw: unknown): Promise<ExportDocumentResult>
   }
 
   try {
-    // ─── Word (.docx) 템플릿 바인딩 시나리오 (EL-244 / EL-245) ───
-    if (req.fileType === "docx") {
-      const templateName = req.templateName ?? (req.rawContent.toUpperCase().includes("ADR")
-        ? "ADR-Template_표준양식.docx"
-        : "API-Spec-Standard_표준양식.docx");
+    const registry = new InMemorySkillRegistry();
+    const context: SkillExecutionContext = {
+      requestId: `export-${Date.now()}`,
+      workspaceRoot: process.cwd(),
+      actor: "export-ipc",
+    };
 
-      const templatesDir = resolveTemplatesDir();
-      const piConsultingDir = path.join(templatesDir, "pi-consulting");
-      const fullTemplatePath = path.join(piConsultingDir, templateName);
+    registry.register({
+      skill: EXCEL_SKILL_ENTRY,
+      executor: {
+        contract: excelTemplateExportContract,
+        async execute(input: ExcelTemplateExportInput): Promise<OfficeTemplateExportOutput> {
+          if (!input.templateName) {
+            const buffer = buildXlsxBuffer(input.rawContent);
+            const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
+              await writeFile(targetPath, buffer);
+            });
 
-      if (!existsSync(fullTemplatePath)) {
-        return { ok: false, error: `워드 템플릿 파일을 찾을 수 없습니다: ${templateName}` };
-      }
-
-      // 1. 문서 명칭 특성 파악에 의해 적당한 파서 가공 디스패치
-      const isADR = templateName.toUpperCase().includes("ADR");
-      const parsedDocData = isADR
-        ? extractADRTemplateData(req.rawContent)
-        : extractAPISpecTemplateData(req.rawContent);
-
-      // 템플릿 키 불일치 또는 섹션 파싱 실패 대비 원문 폴백 텍스트 주입
-      const docData = {
-        ...parsedDocData,
-        rawContent: req.rawContent,
-        content: req.rawContent,
-        answer: req.rawContent,
-        response: req.rawContent,
-        body: req.rawContent,
-      };
-
-      // 2. docxtemplater 물리 조립 기동
-      const writeResult = await writeWithPermissionFallback(filePath, async (targetPath) => {
-        await bindDataToWordTemplate(fullTemplatePath, targetPath, docData);
-      });
-
-      return {
-        ok: true,
-        filePath: writeResult.filePath,
-        fallbackUsed: writeResult.fallbackUsed,
-        fallbackReason: writeResult.fallbackReason,
-      };
-    }
-
-    // ─── 템플릿 바인딩 시나리오 (EL-243) ───
-    if (req.templateName) {
-      const templatesDir = resolveTemplatesDir();
-      const piConsultingDir = path.join(templatesDir, "pi-consulting");
-      const fullTemplatePath = path.join(piConsultingDir, req.templateName);
-
-      if (existsSync(fullTemplatePath)) {
-        // 1. 마크다운 MDAST 변환 및 표 노드 추출
-        const ast = parseMarkdownToCustomAST(req.rawContent);
-        const tableNode = ast.children.find((child) => child.type === "table");
-
-        if (tableNode) {
-          // 2. 템플릿 매니페스트 설정 조회 (manifest/ 디렉토리 기준)
-          const manifestDir = path.join(piConsultingDir, "manifest");
-          const manifest = await resolveTemplateManifest(req.templateName, manifestDir);
-
-          if (manifest && manifest.sheets && manifest.sheets.length > 0) {
-            const sheetConfig = manifest.sheets[0];
-            // 3. 표 데이터를 JSON으로 매핑 정규화
-            const records = normalizeTableToJSON(tableNode, sheetConfig.columns);
-
-            if (records.length > 0) {
-              // 4. exceljs 바인딩 엔진 가동
-              const writeResult = await writeWithPermissionFallback(filePath, async (targetPath) => {
-                await bindDataToExcelTemplate(fullTemplatePath, targetPath, records, sheetConfig);
-              });
-
-              return {
-                ok: true,
-                filePath: writeResult.filePath,
-                fallbackUsed: writeResult.fallbackUsed,
-                fallbackReason: writeResult.fallbackReason,
-              };
-            }
+            return {
+              ok: true,
+              filePath: writeResult.filePath,
+              fallbackUsed: writeResult.fallbackUsed,
+              fallbackReason: writeResult.fallbackReason,
+            };
           }
-        }
-      }
-      console.warn("지정된 엑셀 템플릿 또는 매장 데이터를 찾지 못해, 표준 SheetJS 내보내기로 자동 폴백합니다.");
-    }
 
-    // ─── 기본 SheetJS 내보내기 폴백 (EL-241) ───
-    const buffer = buildXlsxBuffer(req.rawContent);
-    const writeResult = await writeWithPermissionFallback(filePath, async (targetPath) => {
-      await writeFile(targetPath, buffer);
+          const templatesDir = resolveTemplatesDir();
+          const piConsultingDir = path.join(templatesDir, "pi-consulting");
+          const fullTemplatePath = path.join(piConsultingDir, input.templateName);
+
+          if (!existsSync(fullTemplatePath)) {
+            return {
+              ok: false,
+              error: `엑셀 템플릿 파일을 찾을 수 없습니다: ${input.templateName}`,
+            };
+          }
+
+          const ast = parseMarkdownToCustomAST(input.rawContent);
+          const tableNodes = ast.children.filter((child) => child.type === "table");
+          const manifestDir = path.join(piConsultingDir, "manifest");
+          const manifest = await resolveTemplateManifest(input.templateName, manifestDir);
+
+          if (!manifest || !manifest.sheets || manifest.sheets.length === 0) {
+            const buffer = buildXlsxBuffer(input.rawContent);
+            const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
+              await writeFile(targetPath, buffer);
+            });
+
+            return {
+              ok: true,
+              filePath: writeResult.filePath,
+              fallbackUsed: writeResult.fallbackUsed,
+              fallbackReason: writeResult.fallbackReason,
+            };
+          }
+
+          // 매니페스트가 여러 시트를 정의하면 마크다운 표를 순서대로 각 시트에 매핑한다.
+          // (예: 공수산정 = 화면서비스호출 / 서비스난이도 / MM마일스톤 3개 시트)
+          const buildRecordsForSheet = (
+            sheetConfig: ExcelSheetConfig,
+            preferredTable: ASTNode | undefined,
+          ): Record<string, string | number | boolean>[] => {
+            const candidateTables = preferredTable
+              ? [preferredTable, ...tableNodes.filter((t) => t !== preferredTable)]
+              : tableNodes;
+
+            let records: Record<string, string | number | boolean>[] = [];
+            for (const tableNode of candidateTables) {
+              records = normalizeTableToJSON(tableNode, sheetConfig.columns);
+              if (records.length > 0) break;
+            }
+
+            if (records.length === 0) {
+              for (const tableNode of candidateTables) {
+                records = normalizeTableByColumnOrder(tableNode, sheetConfig.columns);
+                if (records.length > 0) break;
+              }
+            }
+
+            return records;
+          };
+
+          if (manifest.sheets.length > 1) {
+            const bindings = manifest.sheets.map((sheetConfig, sheetIdx) => {
+              const records = buildRecordsForSheet(sheetConfig, tableNodes[sheetIdx]);
+              return {
+                sheetConfig,
+                data:
+                  records.length > 0
+                    ? records
+                    : [buildFallbackTemplateRecord(input.rawContent, sheetConfig.columns)],
+              };
+            });
+
+            const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
+              await bindMultipleSheetsToExcelTemplate(fullTemplatePath, targetPath, bindings);
+            });
+
+            return {
+              ok: true,
+              filePath: writeResult.filePath,
+              fallbackUsed: writeResult.fallbackUsed,
+              fallbackReason: writeResult.fallbackReason,
+            };
+          }
+
+          const sheetConfig = manifest.sheets[0];
+
+          const records = buildRecordsForSheet(sheetConfig, tableNodes[0]);
+
+          const recordsForBinding = records.length > 0
+            ? records
+            : [buildFallbackTemplateRecord(input.rawContent, sheetConfig.columns)];
+
+          const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
+            await bindDataToExcelTemplate(fullTemplatePath, targetPath, recordsForBinding, sheetConfig);
+          });
+
+          return {
+            ok: true,
+            filePath: writeResult.filePath,
+            fallbackUsed: writeResult.fallbackUsed,
+            fallbackReason: writeResult.fallbackReason,
+          };
+        },
+      },
     });
 
+    registry.register({
+      skill: WORD_SKILL_ENTRY,
+      executor: {
+        contract: wordTemplateExportContract,
+        async execute(input: WordTemplateExportInput): Promise<OfficeTemplateExportOutput> {
+          const templateName = input.templateName ?? (input.rawContent.toUpperCase().includes("ADR")
+            ? "ADR-Template_표준양식.docx"
+            : "API-Spec-Standard_표준양식.docx");
+
+          const templatesDir = resolveTemplatesDir();
+          const piConsultingDir = path.join(templatesDir, "pi-consulting");
+          const fullTemplatePath = path.join(piConsultingDir, templateName);
+
+          if (!existsSync(fullTemplatePath)) {
+            return {
+              ok: false,
+              error: `워드 템플릿 파일을 찾을 수 없습니다: ${templateName}`,
+            };
+          }
+
+          const isADR = templateName.toUpperCase().includes("ADR");
+          const parsedDocData = isADR
+            ? extractADRTemplateData(input.rawContent)
+            : extractAPISpecTemplateData(input.rawContent);
+
+          const docData = {
+            ...parsedDocData,
+            rawContent: input.rawContent,
+            content: input.rawContent,
+            answer: input.rawContent,
+            response: input.rawContent,
+            body: input.rawContent,
+          };
+
+          const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
+            await bindDataToWordTemplate(fullTemplatePath, targetPath, docData);
+          });
+
+          return {
+            ok: true,
+            filePath: writeResult.filePath,
+            fallbackUsed: writeResult.fallbackUsed,
+            fallbackReason: writeResult.fallbackReason,
+          };
+        },
+      },
+    });
+
+    const actionId = req.fileType === "xlsx"
+      ? EXCEL_TEMPLATE_EXPORT_ACTION_ID
+      : WORD_TEMPLATE_EXPORT_ACTION_ID;
+
+    const result = await dispatchSkillAction(
+      registry,
+      actionId,
+      {
+        rawContent: req.rawContent,
+        savePath: filePath,
+        templateName: req.templateName,
+      },
+      context,
+    );
+
+    if (result.ok) {
+      return result.data as ExportDocumentResult;
+    }
+
     return {
-      ok: true,
-      filePath: writeResult.filePath,
-      fallbackUsed: writeResult.fallbackUsed,
-      fallbackReason: writeResult.fallbackReason,
+      ok: false,
+      error: result.error.message,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

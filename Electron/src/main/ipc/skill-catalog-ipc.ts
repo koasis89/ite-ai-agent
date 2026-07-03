@@ -1,65 +1,67 @@
-import { app, ipcMain } from "electron";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { ipcMain } from "electron";
+import { readCatalogManifest } from "../../../../src/catalog/reader";
+import { evaluateSkillExecutionPolicy } from "../../../../src/skills/policy/status-policy";
 
 export const SKILL_CATALOG_GET_CHANNEL = "omx:skill-catalog:get" as const;
 
-interface ManifestSkillItem {
+interface SkillCatalogGetRequest {
+  includeDeprecated?: boolean;
+}
+
+interface SkillCatalogItem {
   skillId?: string;
   name: string;
-  enabled?: boolean;
+  category: "execution" | "planning" | "shortcut" | "utility";
+  status: "active" | "alias" | "merged" | "deprecated" | "internal";
+  canonical?: string;
+  enabled: boolean;
+  executable: boolean;
+  warnings: string[];
 }
 
-interface ManifestShape {
-  skills?: ManifestSkillItem[];
-}
+function toSkillCatalogItem(
+  skill: {
+    name: string;
+    category: "execution" | "planning" | "shortcut" | "utility";
+    status: "active" | "alias" | "merged" | "deprecated" | "internal";
+    canonical?: string;
+  },
+  includeDeprecated: boolean,
+): SkillCatalogItem {
+  const policy = evaluateSkillExecutionPolicy(skill, {
+    allowDeprecated: includeDeprecated,
+    allowInternal: false,
+  });
 
-function candidateManifestPaths(): string[] {
-  const cwd = process.cwd();
-  const appPath = app.getAppPath();
-
-  return [
-    path.resolve(cwd, "Electron", "skill추가", "manifest.json"),
-    path.resolve(cwd, "skill추가", "manifest.json"),
-    path.resolve(appPath, "Electron", "skill추가", "manifest.json"),
-    path.resolve(appPath, "skill추가", "manifest.json"),
-  ];
-}
-
-async function readManifest(): Promise<ManifestShape | null> {
-  for (const manifestPath of candidateManifestPaths()) {
-    try {
-      const raw = await fs.readFile(manifestPath, "utf-8");
-      const parsed = JSON.parse(raw) as ManifestShape;
-      if (parsed && Array.isArray(parsed.skills)) {
-        return parsed;
-      }
-    } catch {
-      // Try next candidate path.
-    }
-  }
-
-  return null;
+  return {
+    skillId: skill.name,
+    name: skill.name,
+    category: skill.category,
+    status: skill.status,
+    canonical: skill.canonical,
+    enabled: skill.status !== "deprecated" && skill.status !== "internal",
+    executable: policy.executable,
+    warnings: policy.warnings,
+  };
 }
 
 export function registerSkillCatalogIpc(): void {
-  ipcMain.handle(SKILL_CATALOG_GET_CHANNEL, async () => {
-    const manifest = await readManifest();
+  ipcMain.handle(SKILL_CATALOG_GET_CHANNEL, async (_event, raw?: SkillCatalogGetRequest) => {
+    const includeDeprecated = raw?.includeDeprecated === true;
 
-    if (!manifest?.skills) {
+    try {
+      const manifest = readCatalogManifest();
+      const skills = manifest.skills
+        .filter((skill) => skill.category === "shortcut" || skill.category === "utility")
+        .filter((skill) => skill.status !== "internal")
+        .filter((skill) => includeDeprecated || skill.status !== "deprecated")
+        .map((skill) => toSkillCatalogItem(skill, includeDeprecated))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      return { ok: true, data: skills };
+    } catch {
       return { ok: false, error: "Skill manifest file not found." };
     }
-
-    const skills = manifest.skills
-      .filter((item) => item && typeof item.name === "string")
-      .map((item) => ({
-        skillId: item.skillId,
-        name: item.name,
-        enabled: item.enabled !== false,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    return { ok: true, data: skills };
   });
 }
 

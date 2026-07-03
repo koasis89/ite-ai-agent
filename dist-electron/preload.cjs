@@ -37,6 +37,12 @@ var electronAPI = {
   /** EL-241: AI 답변을 오피스 파일(.xlsx/.docx)로 내보내기 */
   exportDocument: (payload) => import_electron.ipcRenderer.invoke("omx:export-document", payload),
   getSkillCatalog: () => import_electron.ipcRenderer.invoke("omx:skill-catalog:get"),
+  getSkillCatalogWithPolicy: (payload) => import_electron.ipcRenderer.invoke("omx:skill-catalog:get", payload),
+  invokeSkill: (payload) => import_electron.ipcRenderer.invoke("omx:skills:invoke", payload),
+  listSkillContracts: () => import_electron.ipcRenderer.invoke("omx:skills:list"),
+  getSkillExecutionPolicy: (payload) => import_electron.ipcRenderer.invoke("omx:skills:status-policy", payload),
+  getSkillObservability: () => import_electron.ipcRenderer.invoke("omx:skills:observability:get"),
+  onSkillFeedback: (callback) => on("omx:skills:feedback", callback),
   checkWorkspaceAccess: () => import_electron.ipcRenderer.invoke("omx:workspace-access:check"),
   convertMarkdownToDocx: (payload) => import_electron.ipcRenderer.invoke("omx:convert-md-to-docx", payload)
 };
