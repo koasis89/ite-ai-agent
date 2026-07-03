@@ -73,6 +73,27 @@ A user may ask you to create, edit, or analyze the contents of an .xlsx file. Yo
 
 **LibreOffice Required for Formula Recalculation**: You can assume LibreOffice is installed for recalculating formula values using the `scripts/recalc.py` script. The script automatically configures LibreOffice on first run, including in sandboxed environments where Unix sockets are restricted (handled by `scripts/office/soffice.py`)
 
+## Electron 템플릿 바인딩 실행 (`scripts/convert.py`)
+
+Electron 앱의 엑셀 내보내기(xlsx executor)는 표준 양식 템플릿에 데이터를 주입할 때 이 스킬의 `scripts/convert.py`(openpyxl 기반)를 파이썬 하위 프로세스로 실행한다.
+
+- **필수 런타임**: Python 3 + `openpyxl` (`pip install openpyxl`).
+- **파이썬 탐지 우선순위**:
+  1. `OMX_PYTHON` 환경변수 — 경로 구분자가 포함되면 **실행 파일 절대/상대 경로**로 간주하며 실제 존재할 때만 채택하고, 그렇지 않으면 PATH에서 찾는 **명령어명**으로 취급한다.
+  2. 패키징 배포 시 동봉 런타임 (`resources/python/python(.exe)` 또는 `resources/python/bin/python3`).
+  3. 시스템 PATH의 표준 명령 (`python` / `py` / `python3`).
+- **권장 설정**: 시스템 파이썬이 없거나 여러 버전이 섞인 환경에서는 `OMX_PYTHON`으로 openpyxl이 설치된 파이썬 실행 파일 경로를 명시한다.
+
+  ```powershell
+  # Windows 예시
+  $env:OMX_PYTHON = "C:\Python311\python.exe"
+  ```
+
+  ```bash
+  # macOS/Linux 예시
+  export OMX_PYTHON=/usr/bin/python3
+  ```
+
 ## Reading and analyzing data
 
 ### Quick text dump

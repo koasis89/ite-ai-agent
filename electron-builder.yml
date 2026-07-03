@@ -1,0 +1,81 @@
+# electron-builder 설정 — OMX Desktop Agent 패키징
+#
+# 이 저장소의 package.json main 은 OMX CLI 진입점(dist/index.js)이므로,
+# extraMetadata.main 으로 패키지된 앱의 진입점을 Electron 번들로 오버라이드한다.
+#
+# 런타임 리소스 경로 계약(Electron/src/main/services/*):
+#   - resolveSkillsDir()    → app.getAppPath()/../skills   = resources/skills
+#   - resolveTemplatesDir() → app.getAppPath()/../templates = resources/templates
+#   - xlsx-skill-runner     → resources/python/... (있을 경우) 우선 탐색
+# 따라서 skills / templates / python 은 asar 밖(extraResources)에 배치해야 한다.
+appId: com.iteteam.omx-desktop
+productName: OMX Desktop Agent
+copyright: Copyright © 2026 ITE Team
+
+directories:
+  output: release/${platform}-${arch}
+  buildResources: Electron/build
+
+# extraMetadata: 패키지된 app.asar 내부 package.json 을 덮어써서
+# Electron 이 dist-electron/main.cjs 를 진입점으로 인식하게 한다.
+extraMetadata:
+  main: dist-electron/main.cjs
+
+# main.cjs / preload.cjs 는 esbuild 로 완전 번들되므로 node_modules 는 포함하지 않는다.
+files:
+  - dist-electron/**/*
+  - package.json
+
+# asar 밖에 두어야 spawn/파일 경로로 접근 가능한 리소스.
+# python 디렉터리는 prepare-python-bundle 스크립트가 생성될 때만 포함된다.
+extraResources:
+  - from: skills
+    to: skills
+    filter:
+      - "**/*"
+  - from: templates
+    to: templates
+    filter:
+      - "**/*"
+  - from: build/python
+    to: python
+    filter:
+      - "**/*"
+
+# node_modules 정리를 electron-builder 에 맡기지 않고 번들 기반으로 최소화.
+npmRebuild: false
+buildDependenciesFromSource: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.developer-tools
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Development
+  artifactName: ${productName}-${version}-${arch}.${ext}

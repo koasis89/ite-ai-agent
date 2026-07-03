@@ -56,7 +56,15 @@
     "verify:native-agents": "node dist/scripts/verify-native-agents.js",
     "prompt:inventory": "node dist/scripts/prompt-inventory.js",
     "build:api": "node dist/scripts/build-api.js",
-    "dev:electron": "concurrently -k -n VITE,MAIN,PRELOAD,ELECTRON \"vite --config Electron/vite.config.ts --host 127.0.0.1\" \"esbuild Electron/src/electron-main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/main.cjs --sourcemap --watch\" \"esbuild Electron/src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.cjs --sourcemap --watch\" \"wait-on tcp:5173 dist-electron/main.cjs dist-electron/preload.cjs && nodemon --watch dist-electron/main.cjs --watch dist-electron/preload.cjs --exec \\\"node Electron/scripts/run-electron-dev.cjs dist-electron/main.cjs\\\"\""
+    "dev:electron": "concurrently -k -n VITE,MAIN,PRELOAD,ELECTRON \"vite --config Electron/vite.config.ts --host 127.0.0.1\" \"esbuild Electron/src/electron-main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/main.cjs --sourcemap --watch\" \"esbuild Electron/src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.cjs --sourcemap --watch\" \"wait-on tcp:5173 dist-electron/main.cjs dist-electron/preload.cjs && nodemon --watch dist-electron/main.cjs --watch dist-electron/preload.cjs --exec \\\"node Electron/scripts/run-electron-dev.cjs dist-electron/main.cjs\\\"\"",
+    "build:electron:main": "esbuild Electron/src/electron-main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/main.cjs --minify",
+    "build:electron:preload": "esbuild Electron/src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.cjs --minify",
+    "build:electron:renderer": "vite build --config Electron/vite.config.ts",
+    "build:electron": "npm run build:electron:main && npm run build:electron:preload && npm run build:electron:renderer",
+    "package:electron": "npm run build:electron && node Electron/scripts/prepare-python-bundle.cjs && electron-builder --config electron-builder.yml",
+    "package:electron:win": "npm run build:electron && node Electron/scripts/prepare-python-bundle.cjs && electron-builder --config electron-builder.yml --win",
+    "package:electron:mac": "npm run build:electron && node Electron/scripts/prepare-python-bundle.cjs && electron-builder --config electron-builder.yml --mac",
+    "package:electron:linux": "npm run build:electron && node Electron/scripts/prepare-python-bundle.cjs && electron-builder --config electron-builder.yml --linux"
   },
   "engines": {
     "node": ">=20"
@@ -117,6 +125,7 @@
     "c8": "^11.0.0",
     "concurrently": "^9.2.1",
     "electron": "^39.2.6",
+    "electron-builder": "^25.1.8",
     "esbuild": "^0.27.0",
     "nodemon": "^3.1.11",
     "typescript": "^6.0.3",
@@ -125,6 +134,10 @@
   },
   "overrides": {
     "ajv": ">=8.18.0",
-    "hono": ">=4.11.10"
+    "hono": ">=4.11.10",
+    "@develar/schema-utils": {
+      "ajv": "^6.12.6",
+      "ajv-keywords": "^3.5.2"
+    }
   }
 }

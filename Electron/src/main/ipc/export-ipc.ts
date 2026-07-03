@@ -29,10 +29,9 @@ import {
 } from "../services/markdown-normalizer";
 import {
   resolveTemplateManifest,
-  bindDataToExcelTemplate,
-  bindMultipleSheetsToExcelTemplate,
   type ExcelSheetConfig,
 } from "../services/excel-template-binder";
+import { runXlsxSkillConvert } from "../services/xlsx-skill-runner";
 import {
   extractADRTemplateData,
   extractAPISpecTemplateData,
@@ -448,40 +447,35 @@ async function handleExportDocument(raw: unknown): Promise<ExportDocumentResult>
             return records;
           };
 
-          if (manifest.sheets.length > 1) {
-            const bindings = manifest.sheets.map((sheetConfig, sheetIdx) => {
-              const records = buildRecordsForSheet(sheetConfig, tableNodes[sheetIdx]);
-              return {
-                sheetConfig,
-                data:
-                  records.length > 0
-                    ? records
-                    : [buildFallbackTemplateRecord(input.rawContent, sheetConfig.columns)],
-              };
-            });
-
-            const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
-              await bindMultipleSheetsToExcelTemplate(fullTemplatePath, targetPath, bindings);
-            });
-
+          // 시트별 (설정 + 정규화 레코드)를 구성하여 xlsx 스킬(convert.py)에 넘긴다.
+          const sheetBindings = manifest.sheets.map((sheetConfig, sheetIdx) => {
+            const records = buildRecordsForSheet(sheetConfig, tableNodes[sheetIdx]);
             return {
-              ok: true,
-              filePath: writeResult.filePath,
-              fallbackUsed: writeResult.fallbackUsed,
-              fallbackReason: writeResult.fallbackReason,
+              name: sheetConfig.name,
+              dataStartRow: sheetConfig.dataStartRow,
+              columns: sheetConfig.columns,
+              records:
+                records.length > 0
+                  ? records
+                  : [
+                      buildFallbackTemplateRecord(input.rawContent, sheetConfig.columns) as Record<
+                        string,
+                        string | number | boolean
+                      >,
+                    ],
             };
-          }
-
-          const sheetConfig = manifest.sheets[0];
-
-          const records = buildRecordsForSheet(sheetConfig, tableNodes[0]);
-
-          const recordsForBinding = records.length > 0
-            ? records
-            : [buildFallbackTemplateRecord(input.rawContent, sheetConfig.columns)];
+          });
 
           const writeResult = await writeWithPermissionFallback(input.savePath, async (targetPath) => {
-            await bindDataToExcelTemplate(fullTemplatePath, targetPath, recordsForBinding, sheetConfig);
+            const skillResult = await runXlsxSkillConvert({
+              templatePath: fullTemplatePath,
+              outputPath: targetPath,
+              metadataSheets: ["문서정보"],
+              sheets: sheetBindings,
+            });
+            if (skillResult.status !== "success") {
+              throw new Error(skillResult.error || "xlsx 스킬 변환에 실패했습니다.");
+            }
           });
 
           return {
