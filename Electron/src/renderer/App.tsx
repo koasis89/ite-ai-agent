@@ -5,6 +5,8 @@ import ChatContainer from "./components/ChatContainer";
 import type { Message } from "./components/ChatContainer";
 import { LifecycleDashboard } from "./components/LifecycleDashboard";
 import PersonaSwitcher from "./components/PersonaSwitcher";
+import SkillCatalogPanel from "./components/SkillCatalogPanel";
+import WorkspacePermissionBanner from "./components/WorkspacePermissionBanner";
 import {
   listChatSessions,
   ensureSession,
@@ -29,7 +31,7 @@ export default function App(): React.ReactElement {
   const [streamErrors, setStreamErrors] = useState<string[]>([]);
   // onStreamDone 콜백 클로저에서 최신 에러를 읽기 위한 ref (state는 마운트 시점 값으로 캡처됨)
   const streamErrorsRef = useRef<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("echo");
+  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [geminiKeyAvailable, setGeminiKeyAvailable] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -204,6 +206,8 @@ export default function App(): React.ReactElement {
         <PersonaSwitcher value={selectedPersona} onChange={setSelectedPersona} />
       </header>
 
+      <WorkspacePermissionBanner />
+
       <main className="app-main">
         <section className="chat-pane">
           {selectedModel.startsWith("gemini-") && !geminiKeyAvailable && (
@@ -216,6 +220,7 @@ export default function App(): React.ReactElement {
             ]}
             onSendMessage={handleSendMessage}
             selectedModel={selectedModel}
+            selectedPersona={selectedPersona}
             onModelChange={setSelectedModel}
             streamingText={streamText}
             streamErrors={streamErrors}
@@ -223,6 +228,7 @@ export default function App(): React.ReactElement {
             onMessagesChange={handleMessagesChange}
           />
         </section>
+        <SkillCatalogPanel />
         <LifecycleDashboard />
       </main>
 

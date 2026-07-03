@@ -7,6 +7,9 @@ import { registerExportIpc } from "./main/ipc/export-ipc";
 import { registerInterludeIpc } from "./main/ipc/interlude-ipc";
 import { registerStateIpc } from "./main/ipc/state-ipc";
 import { registerStreamBridgeIpc } from "./main/ipc/stream-bridge-ipc";
+import { registerSkillCatalogIpc } from "./main/ipc/skill-catalog-ipc";
+import { registerWorkspaceAccessIpc } from "./main/ipc/workspace-access-ipc";
+import { registerMdDocxIpc } from "./main/ipc/md-docx-ipc";
 import { sessionLogger } from "./main/logs/session-logger";
 
 const bundleDir = __dirname;
@@ -18,6 +21,9 @@ function registerIpc(): void {
   registerInterludeIpc();
   registerStateIpc();
   registerStreamBridgeIpc();
+  registerSkillCatalogIpc();
+  registerWorkspaceAccessIpc();
+  registerMdDocxIpc();
   registerAdapterIpc();
   registerExportIpc();
 }

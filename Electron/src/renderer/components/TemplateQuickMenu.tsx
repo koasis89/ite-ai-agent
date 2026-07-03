@@ -50,11 +50,17 @@ export const TEMPLATE_LIST: TemplateDef[] = [
 interface TemplateQuickMenuProps {
   /** 선택한 템플릿 프롬프트를 입력창에 주입 */
   onSelectTemplate: (prompt: string) => void;
+  /** 현재 선택된 페르소나 ID */
+  selectedPersona?: string;
 }
 
-export const TemplateQuickMenu: React.FC<TemplateQuickMenuProps> = ({ onSelectTemplate }) => {
+export const TemplateQuickMenu: React.FC<TemplateQuickMenuProps> = ({
+  onSelectTemplate,
+  selectedPersona = "default",
+}) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const visibleTemplates = selectedPersona === "pi-architect" ? TEMPLATE_LIST : [];
 
   // 외부 클릭 시 닫기
   useEffect(() => {
@@ -88,18 +94,24 @@ export const TemplateQuickMenu: React.FC<TemplateQuickMenuProps> = ({ onSelectTe
 
       {open && (
         <ul className="template-quick-menu" role="menu">
-          {TEMPLATE_LIST.map((t) => (
-            <li key={t.id} role="none">
-              <button
-                type="button"
-                role="menuitem"
-                className="template-quick-item"
-                onClick={() => handleSelect(t.prompt)}
-              >
-                {t.label}
-              </button>
+          {visibleTemplates.length > 0 ? (
+            visibleTemplates.map((t) => (
+              <li key={t.id} role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="template-quick-item"
+                  onClick={() => handleSelect(t.prompt)}
+                >
+                  {t.label}
+                </button>
+              </li>
+            ))
+          ) : (
+            <li role="none" className="template-quick-empty">
+              사용 가능한 템플릿이 없습니다.
             </li>
-          ))}
+          )}
         </ul>
       )}
     </div>

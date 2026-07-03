@@ -539,3 +539,146 @@ textarea {
   background: #f9fafb;
 }
 
+.template-quick-empty {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.skill-catalog-panel {
+  width: 280px;
+  min-width: 280px;
+  border-left: 1px solid #e5e7eb;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skill-catalog-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.skill-catalog-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.skill-catalog-meta {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.skill-catalog-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skill-catalog-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+}
+
+.skill-catalog-item-name {
+  min-width: 0;
+  font-size: 13px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill-catalog-badge {
+  font-size: 10px;
+  line-height: 1;
+  border-radius: 9999px;
+  padding: 5px 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.skill-catalog-badge.enabled {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.skill-catalog-badge.disabled {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
+.skill-catalog-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.workspace-permission-banner {
+  border-bottom: 1px solid #fdba74;
+  background: #fff7ed;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #7c2d12;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-permission-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workspace-permission-banner-line {
+  line-height: 1.4;
+}
+
+.workspace-permission-banner-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.workspace-permission-banner-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.workspace-permission-banner-btn {
+  border: 1px solid #fb923c;
+  background: #ffedd5;
+  color: #9a3412;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workspace-permission-banner-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.workspace-permission-banner-btn.secondary {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+}
+

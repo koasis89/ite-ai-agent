@@ -165,10 +165,18 @@ const KIND_LABEL: Record<InterludePayload["kind"], string> = {
 
 // ─── 복사 및 표준오피스 내보내기 컴포넌트 ───────────────────────────────────
 
-const ExportActions: React.FC<{ content: string }> = ({ content }) => {
+const ExportActions: React.FC<{ content: string; role?: "assistant" | "system" }> = ({
+  content,
+  role = "assistant",
+}) => {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    message: string;
+    isPermissionIssue?: boolean;
+    usedFallback?: boolean;
+  } | null>(null);
 
   // GFM 테이블 탐색 (단순 | 감지 및 정렬 구분선 체크)
   const hasTable = content.includes("|") && /\|[-: ]+\|/.test(content);
@@ -224,37 +232,153 @@ const ExportActions: React.FC<{ content: string }> = ({ content }) => {
       });
 
       if (res.ok) {
-        setResult({ ok: true, message: `성공: ${res.filePath}` });
+        if (res.fallbackUsed) {
+          setResult({
+            ok: true,
+            usedFallback: true,
+            message: `권한 문제로 fallback 저장: ${res.filePath}`,
+          });
+        } else {
+          setResult({ ok: true, message: `성공: ${res.filePath}` });
+        }
       } else if (res.cancelled) {
         // 취소 시 조용히 무시
       } else {
         throw new Error(res.error || "취소됨");
       }
     } catch (err: any) {
-      setResult({ ok: false, message: `실패: ${err.message}` });
+      const message = String(err?.message || "알 수 없는 오류");
+      const isPermissionIssue =
+        /permission denied|access is denied|액세스가 거부|eacces|eperm/i.test(message);
+
+      setResult({
+        ok: false,
+        isPermissionIssue,
+        message: `실패: ${message}`,
+      });
     } finally {
       setLoading(false);
-      setTimeout(() => setResult(null), 4000);
+      setTimeout(() => setResult(null), 7000);
+    }
+  };
+
+  const handleConvertAnswerToDocx = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const api = window.electronAPI;
+      if (!api?.convertMarkdownToDocx) {
+        throw new Error("Electron API(convertMarkdownToDocx)가 활성화되어 있지 않습니다.");
+      }
+
+      const date = new Date().toISOString().slice(0, 10);
+      const res = await api.convertMarkdownToDocx({
+        markdown: content,
+        defaultFileName: `assistant-answer-${date}`,
+      });
+
+      if (res.cancelled) return;
+      if (!res.ok) {
+        throw new Error(res.error || "DOCX 변환에 실패했습니다.");
+      }
+
+      if (res.fallbackUsed) {
+        setResult({
+          ok: true,
+          usedFallback: true,
+          message: `권한 문제로 fallback 저장: ${res.filePath}`,
+        });
+      } else {
+        setResult({ ok: true, message: `DOCX 변환 완료: ${res.filePath}` });
+      }
+    } catch (err: any) {
+      const message = String(err?.message || "알 수 없는 오류");
+      const isPermissionIssue =
+        /permission denied|access is denied|액세스가 거부|eacces|eperm/i.test(message);
+
+      setResult({
+        ok: false,
+        isPermissionIssue,
+        message: `실패: ${message}`,
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setResult(null), 7000);
     }
   };
 
   return (
     <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", marginTop: "4px" }}>
       {result && (
-        <span style={{ 
-          fontSize: "11px", 
-          padding: "2px 6px", 
+        <span style={{
+          fontSize: "11px",
+          padding: "2px 6px",
           borderRadius: "4px",
           backgroundColor: result.ok ? "#ecfdf5" : "#fef2f2",
           color: result.ok ? "#059669" : "#dc2626",
           border: `1px solid ${result.ok ? "#a7f3d0" : "#fecaca"}`,
-          maxWidth: "200px",
+          maxWidth: "260px",
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis"
         }} title={result.message}>
           {result.message}
         </span>
+      )}
+
+      {result?.isPermissionIssue && (
+        <span
+          style={{
+            fontSize: "11px",
+            color: "#7c2d12",
+            background: "#ffedd5",
+            border: "1px solid #fdba74",
+            borderRadius: "4px",
+            padding: "2px 6px",
+          }}
+          title="관리자 권한으로 앱 재실행 또는 다른 저장 경로를 선택하세요."
+        >
+          권한 필요: 관리자 실행 또는 다른 경로 선택
+        </span>
+      )}
+
+      {result?.usedFallback && (
+        <span
+          style={{
+            fontSize: "11px",
+            color: "#1e3a8a",
+            background: "#dbeafe",
+            border: "1px solid #93c5fd",
+            borderRadius: "4px",
+            padding: "2px 6px",
+          }}
+          title="문서 폴더의 OMX-Exports로 자동 저장되었습니다."
+        >
+          fallback: 문서/OMX-Exports 저장
+        </span>
+      )}
+
+      {role === "assistant" && (
+        <button
+          onClick={handleConvertAnswerToDocx}
+          disabled={loading || !content.trim()}
+          title="현재 AI 답변을 DOCX로 변환"
+          style={{
+            background: "#eff6ff",
+            border: "1px solid #3b82f6",
+            color: "#1d4ed8",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "11px",
+            padding: "2px 8px",
+            fontWeight: "bold",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          📄 {loading ? "처리중.." : "docx변환"}
+        </button>
       )}
       
       {hasTable && (
@@ -384,6 +508,8 @@ interface ChatContainerProps {
   onSendMessage?: (text: string) => void;
   /** 현재 선택된 모델 ID */
   selectedModel?: string;
+  /** 현재 선택된 페르소나 ID */
+  selectedPersona?: string;
   /** 모델 변경 콜백 */
   onModelChange?: (modelId: string) => void;
   /** 스트리밍 중인 응답 텍스트 (assistant 버블로 실시간 표시) */
@@ -404,7 +530,8 @@ interface ChatContainerProps {
 export const ChatContainer: React.FC<ChatContainerProps> = ({
   initialMessages = [],
   onSendMessage,
-  selectedModel = "echo",
+  selectedModel = "gemini-2.5-flash",
+  selectedPersona = "default",
   onModelChange,
   streamingText = "",
   streamErrors = [],
@@ -801,7 +928,10 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               // assistant & system 메시지는 MdBubble과 함께 복사/내보내기 버튼 제공
               <>
                 <MdBubble content={msg.content} />
-                <ExportActions content={msg.content} />
+                <ExportActions
+                  content={msg.content}
+                  role={msg.role === "assistant" ? "assistant" : "system"}
+                />
               </>
             )}
           </div>
@@ -821,7 +951,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             }}
           >
             <MdBubble content={streamingText} />
-            <ExportActions content={streamingText} />
+            <ExportActions content={streamingText} role="assistant" />
           </div>
         )}
         {/* 스트림 에러 표시 */}
@@ -1064,6 +1194,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               </button>
               <TemplateQuickMenu
                 onSelectTemplate={(prompt) => setInputText(prompt)}
+                selectedPersona={selectedPersona}
               />
               <ModelSelector
                 value={selectedModel}

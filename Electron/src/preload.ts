@@ -59,8 +59,44 @@ const electronAPI = {
     ipcRenderer.invoke("omx:export-document", payload) as Promise<{
       ok: boolean;
       filePath?: string;
+      fallbackUsed?: boolean;
+      fallbackReason?: string;
       error?: string;
       cancelled?: boolean;
+    }>,
+
+  getSkillCatalog: () =>
+    ipcRenderer.invoke("omx:skill-catalog:get") as Promise<{
+      ok: boolean;
+      data?: Array<{ skillId?: string; name: string; enabled: boolean }>;
+      error?: string;
+    }>,
+
+  checkWorkspaceAccess: () =>
+    ipcRenderer.invoke("omx:workspace-access:check") as Promise<{
+      ok: boolean;
+      data?: {
+        rootPath: string;
+        canRead: boolean;
+        canWrite: boolean;
+        checkedAt: string;
+        errorMessage?: string;
+        suggestions: string[];
+      };
+      error?: string;
+    }>,
+
+  convertMarkdownToDocx: (payload: {
+    markdown: string;
+    defaultFileName?: string;
+  }) =>
+    ipcRenderer.invoke("omx:convert-md-to-docx", payload) as Promise<{
+      ok: boolean;
+      filePath?: string;
+      fallbackUsed?: boolean;
+      fallbackReason?: string;
+      cancelled?: boolean;
+      error?: string;
     }>,
 };
 

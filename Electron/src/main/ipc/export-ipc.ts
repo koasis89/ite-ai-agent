@@ -17,7 +17,7 @@
  */
 
 import { ipcMain, dialog, BrowserWindow, app } from "electron";
-import { writeFile } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import * as XLSX from "xlsx";
@@ -60,10 +60,66 @@ export interface ExportDocumentResult {
   ok: boolean;
   /** 저장된 파일 절대 경로 (성공 시) */
   filePath?: string;
+  /** 권한 문제로 fallback 경로 저장이 사용되었는지 여부 */
+  fallbackUsed?: boolean;
+  /** fallback 사유 */
+  fallbackReason?: string;
   /** 실패/취소 사유 */
   error?: string;
   /** 사용자가 저장 다이얼로그를 취소했는지 여부 */
   cancelled?: boolean;
+}
+
+type WriteResult = {
+  filePath: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+};
+
+function isPermissionError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+
+  const maybeErr = err as { code?: string; message?: string };
+  const code = (maybeErr.code || "").toUpperCase();
+  const message = (maybeErr.message || "").toLowerCase();
+
+  if (code === "EACCES" || code === "EPERM") return true;
+  return (
+    message.includes("permission denied") ||
+    message.includes("access is denied") ||
+    message.includes("액세스가 거부")
+  );
+}
+
+async function buildFallbackPath(originalPath: string): Promise<string> {
+  const docsDir = app.getPath("documents");
+  const exportDir = path.join(docsDir, "OMX-Exports");
+  await mkdir(exportDir, { recursive: true });
+
+  const parsed = path.parse(originalPath);
+  const fallbackFileName = `${parsed.name}-${Date.now()}${parsed.ext}`;
+  return path.join(exportDir, fallbackFileName);
+}
+
+async function writeWithPermissionFallback(
+  initialPath: string,
+  writer: (targetPath: string) => Promise<void>,
+): Promise<WriteResult> {
+  try {
+    await writer(initialPath);
+    return { filePath: initialPath, fallbackUsed: false };
+  } catch (err) {
+    if (!isPermissionError(err)) throw err;
+
+    const fallbackPath = await buildFallbackPath(initialPath);
+    await writer(fallbackPath);
+    return {
+      filePath: fallbackPath,
+      fallbackUsed: true,
+      fallbackReason:
+        "원래 경로에 쓰기 권한이 없어 문서 폴더(OMX-Exports)로 저장했습니다.",
+    };
+  }
 }
 
 // ─── 마크다운 표 추출 (경량 파서 — 일반 폴백용) ───────────────────────────────
@@ -253,8 +309,16 @@ async function handleExportDocument(raw: unknown): Promise<ExportDocumentResult>
       };
 
       // 2. docxtemplater 물리 조립 기동
-      await bindDataToWordTemplate(fullTemplatePath, filePath, docData);
-      return { ok: true, filePath };
+      const writeResult = await writeWithPermissionFallback(filePath, async (targetPath) => {
+        await bindDataToWordTemplate(fullTemplatePath, targetPath, docData);
+      });
+
+      return {
+        ok: true,
+        filePath: writeResult.filePath,
+        fallbackUsed: writeResult.fallbackUsed,
+        fallbackReason: writeResult.fallbackReason,
+      };
     }
 
     // ─── 템플릿 바인딩 시나리오 (EL-243) ───
@@ -280,8 +344,16 @@ async function handleExportDocument(raw: unknown): Promise<ExportDocumentResult>
 
             if (records.length > 0) {
               // 4. exceljs 바인딩 엔진 가동
-              await bindDataToExcelTemplate(fullTemplatePath, filePath, records, sheetConfig);
-              return { ok: true, filePath };
+              const writeResult = await writeWithPermissionFallback(filePath, async (targetPath) => {
+                await bindDataToExcelTemplate(fullTemplatePath, targetPath, records, sheetConfig);
+              });
+
+              return {
+                ok: true,
+                filePath: writeResult.filePath,
+                fallbackUsed: writeResult.fallbackUsed,
+                fallbackReason: writeResult.fallbackReason,
+              };
             }
           }
         }
@@ -291,11 +363,22 @@ async function handleExportDocument(raw: unknown): Promise<ExportDocumentResult>
 
     // ─── 기본 SheetJS 내보내기 폴백 (EL-241) ───
     const buffer = buildXlsxBuffer(req.rawContent);
-    await writeFile(filePath, buffer);
-    return { ok: true, filePath };
+    const writeResult = await writeWithPermissionFallback(filePath, async (targetPath) => {
+      await writeFile(targetPath, buffer);
+    });
+
+    return {
+      ok: true,
+      filePath: writeResult.filePath,
+      fallbackUsed: writeResult.fallbackUsed,
+      fallbackReason: writeResult.fallbackReason,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: `파일 내보내기 실패: ${message}` };
+    const permissionHint = isPermissionError(err)
+      ? " (관리자 권한 실행 또는 저장 경로 변경이 필요합니다.)"
+      : "";
+    return { ok: false, error: `파일 내보내기 실패: ${message}${permissionHint}` };
   }
 }
 

@@ -21,6 +21,7 @@ export interface PersonaDef {
 export const PERSONA_LIST: PersonaDef[] = [
   { id: "default", label: "기본 봇", emoji: "🤖", description: "범용 어시스턴트" },
   { id: "pi-architect", label: "PI Consultant", emoji: "🏛️", description: "PI 컨설팅 PL & 어플리케이션 아키텍트" },
+  { id: "insurance-si-proposal-writer", label: "제안서 작성", emoji: "🧾", description: "보험/공제 SI 제안서 작성" },
   { id: "code-reviewer", label: "Code Reviewer", emoji: "📋", description: "코드 리뷰 전문가" },
   { id: "architect", label: "Architect", emoji: "🧭", description: "시스템 설계/진단 (읽기 전용)" },
 ];

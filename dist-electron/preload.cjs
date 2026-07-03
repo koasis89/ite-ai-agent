@@ -35,7 +35,10 @@ var electronAPI = {
     getStatus: () => import_electron.ipcRenderer.invoke("omx:gemini-key:status")
   },
   /** EL-241: AI 답변을 오피스 파일(.xlsx/.docx)로 내보내기 */
-  exportDocument: (payload) => import_electron.ipcRenderer.invoke("omx:export-document", payload)
+  exportDocument: (payload) => import_electron.ipcRenderer.invoke("omx:export-document", payload),
+  getSkillCatalog: () => import_electron.ipcRenderer.invoke("omx:skill-catalog:get"),
+  checkWorkspaceAccess: () => import_electron.ipcRenderer.invoke("omx:workspace-access:check"),
+  convertMarkdownToDocx: (payload) => import_electron.ipcRenderer.invoke("omx:convert-md-to-docx", payload)
 };
 import_electron.contextBridge.exposeInMainWorld("electronAPI", electronAPI);
 //# sourceMappingURL=preload.cjs.map
