@@ -45,3 +45,6 @@ snapshot.json
 dist-electron/
 release/
 build/python/
+
+# Local logs (never commit)
+log/

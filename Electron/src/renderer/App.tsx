@@ -41,12 +41,23 @@ export default function App(): React.ReactElement {
   const [streamErrors, setStreamErrors] = useState<string[]>([]);
   // onStreamDone 콜백 클로저에서 최신 에러를 읽기 위한 ref (state는 마운트 시점 값으로 캡처됨)
   const streamErrorsRef = useRef<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
+  // onStreamDone 클로저에서 최신 streamText를 읽기 위한 ref
+  const streamTextRef = useRef("");
+  const [selectedModel, setSelectedModel] = useState("custom-gemma4:31b");
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [geminiKeyAvailable, setGeminiKeyAvailable] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [chatSeedMessages, setChatSeedMessages] = useState<Message[]>([]);
+  // 답변 완료 시 xlsx 산출물을 자동 저장할지 여부(기본 ON)
+  const [autoSaveXlsx, setAutoSaveXlsx] = useState(true);
+  const autoSaveXlsxRef = useRef(true);
+  // 자동 저장 결과 알림(배너)
+  const [autoSaveNotice, setAutoSaveNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    autoSaveXlsxRef.current = autoSaveXlsx;
+  }, [autoSaveXlsx]);
 
   const refreshSessions = useCallback((preferredId?: string) => {
     const listed = listChatSessions();
@@ -67,12 +78,64 @@ export default function App(): React.ReactElement {
     });
   }, []);
 
+  // 답변 완료 시 xlsx 표준 산출물을 감지해 자동 저장한다.
+  // (알려진 산출물 템플릿 키워드 + 마크다운 표가 있을 때만 동작)
+  const maybeAutoSaveXlsx = useCallback(async (content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed || trimmed === "Stream finished.") return;
+
+    const hasTable = trimmed.includes("|") && /\|[-: ]+\|/.test(trimmed);
+    if (!hasTable) return;
+
+    let templateName: string | undefined;
+    let defaultFileName: string | undefined;
+    if (trimmed.toUpperCase().includes("WBS")) {
+      templateName = "WBS-Template_표준양식.xlsx";
+      defaultFileName = "WBS-산출물";
+    } else if (trimmed.includes("공수")) {
+      templateName = "Effort-Estimation_표준양식.xlsx";
+      defaultFileName = "공수산정-산출물";
+    } else if (trimmed.includes("갭분석") || trimmed.includes("Gap")) {
+      templateName = "Gap-Analysis-Report_표준양식.xlsx";
+      defaultFileName = "갭분석-산출물";
+    }
+
+    // 알려진 xlsx 산출물이 아니면 자동 저장하지 않는다.
+    if (!templateName) return;
+
+    try {
+      const api = window.electronAPI;
+      if (!api?.exportDocument) return;
+      const res = await api.exportDocument({
+        fileType: "xlsx",
+        rawContent: trimmed,
+        defaultFileName,
+        templateName,
+        autoSave: true,
+      });
+      if (res?.ok && res.filePath) {
+        setAutoSaveNotice(`✅ 엑셀 자동 저장 완료: ${res.filePath}`);
+        setTimeout(() => setAutoSaveNotice(null), 8000);
+      } else if (res && !res.cancelled && res.error) {
+        setAutoSaveNotice(`⚠️ 엑셀 자동 저장 실패: ${res.error}`);
+        setTimeout(() => setAutoSaveNotice(null), 8000);
+      }
+    } catch (err) {
+      setAutoSaveNotice(`⚠️ 엑셀 자동 저장 실패: ${String((err as Error)?.message ?? err)}`);
+      setTimeout(() => setAutoSaveNotice(null), 8000);
+    }
+  }, []);
+
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.onStreamToken) return;
 
     const unsubToken = api.onStreamToken((payload: StreamToken) => {
-      setStreamText((prev) => `${prev}${readTokenText(payload)}`);
+      setStreamText((prev) => {
+        const next = `${prev}${readTokenText(payload)}`;
+        streamTextRef.current = next;
+        return next;
+      });
     });
     const unsubError = api.onStreamError?.((payload: { message?: string }) => {
       if (payload?.message) {
@@ -90,6 +153,10 @@ export default function App(): React.ReactElement {
         setStreamText((prev) => (prev.trim() ? `${prev}\n\n${failureLine}` : failureLine));
       } else {
         setStreamText((prev) => (prev.trim() ? prev : "Stream finished."));
+        // 성공 완료 시: xlsx 산출물이면 자동 저장
+        if (autoSaveXlsxRef.current) {
+          void maybeAutoSaveXlsx(streamTextRef.current);
+        }
       }
     });
 
@@ -102,6 +169,7 @@ export default function App(): React.ReactElement {
 
   const handleSendMessage = useCallback((text: string) => {
     setStreamText("");
+    streamTextRef.current = "";
     setStreamErrors([]);
     streamErrorsRef.current = [];
     void window.electronAPI?.startAgentStream?.({
@@ -212,11 +280,48 @@ export default function App(): React.ReactElement {
           >
             삭제
           </button>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#334155",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+            title="답변 완료 시 xlsx 산출물을 문서/OMX-Exports 폴더에 자동 저장"
+          >
+            <input
+              type="checkbox"
+              checked={autoSaveXlsx}
+              onChange={(e) => setAutoSaveXlsx(e.target.checked)}
+            />
+            엑셀 자동 저장
+          </label>
         </div>
         <PersonaSwitcher value={selectedPersona} onChange={setSelectedPersona} />
       </header>
 
       <WorkspacePermissionBanner />
+
+      {autoSaveNotice && (
+        <div
+          style={{
+            margin: "8px 16px 0",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "1px solid #a7f3d0",
+            background: "#ecfdf5",
+            color: "#065f46",
+            fontSize: "13px",
+            fontWeight: 500,
+          }}
+        >
+          {autoSaveNotice}
+        </div>
+      )}
 
       <main className="app-main">
         <section className="chat-pane">

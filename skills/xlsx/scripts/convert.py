@@ -12,7 +12,7 @@ Electron xlsx executor가 spawn하여 사용하는 변환 진입점 스크립트
 
 payload 스키마:
 {
-  "templatePath": "<원본 .xlsx 절대경로>",
+  "templatePath": "<원본 .xlsx 절대경로>",  # 생략/빈 값이면 템플릿 없이 새 워크북 생성(스크래치 모드)
   "outputPath":   "<저장 .xlsx 절대경로>",
   "metadataSheets": ["문서정보"],          # 데이터로 덮어쓰면 안 되는 메타 시트명(선택)
   "recalc": false,                          # true면 저장 후 recalc.py로 수식 재계산(선택)
@@ -20,6 +20,7 @@ payload 스키마:
     {
       "name": "18.화면서비스호출",
       "dataStartRow": 2,
+      "headers": ["화면 ID", "화면명", ...],  # 스크래치 모드에서 1행에 기록할 헤더(선택)
       "columns": [
         {"idx": 1, "field": "screenId", "type": "string"},
         ...
@@ -43,7 +44,7 @@ import sys
 from copy import copy
 from pathlib import Path
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 
 def _coerce(value, col_type):
@@ -132,6 +133,28 @@ def _bind_sheet(workbook, sheet_cfg, metadata_sheets):
     return {"requested": name, "applied": applied, "rows": len(records)}
 
 
+def _bind_sheet_scratch(worksheet, sheet_cfg):
+    """템플릿이 없는 새 워크북에 헤더/데이터를 직접 기록한다."""
+    data_start_row = int(sheet_cfg["dataStartRow"])
+    columns = sheet_cfg.get("columns", [])
+    records = sheet_cfg.get("records", [])
+    headers = sheet_cfg.get("headers", [])
+
+    if headers:
+        for col_idx, header in enumerate(headers, start=1):
+            worksheet.cell(row=1, column=col_idx, value=str(header))
+
+    for i, record in enumerate(records):
+        row_idx = data_start_row + i
+        for col in columns:
+            col_idx = int(col["idx"])
+            worksheet.cell(row=row_idx, column=col_idx).value = _coerce(
+                record.get(col["field"]), col.get("type", "string")
+            )
+
+    return {"requested": sheet_cfg["name"], "applied": worksheet.title, "rows": len(records)}
+
+
 def _maybe_recalc(output_path):
     """recalc.py를 통해 수식 재계산을 시도한다(LibreOffice 필요). 실패해도 변환 자체는 성공으로 둔다."""
     try:
@@ -144,19 +167,34 @@ def _maybe_recalc(output_path):
 
 
 def convert(payload):
-    template_path = payload["templatePath"]
+    template_path = payload.get("templatePath")
     output_path = payload["outputPath"]
     metadata_sheets = set(payload.get("metadataSheets", ["문서정보"]))
     sheets = payload.get("sheets", [])
 
-    if not Path(template_path).exists():
-        return {"status": "error", "error": f"템플릿 파일을 찾을 수 없습니다: {template_path}"}
-
-    workbook = load_workbook(template_path)
-
     sheets_written = []
-    for sheet_cfg in sheets:
-        sheets_written.append(_bind_sheet(workbook, sheet_cfg, metadata_sheets))
+
+    if template_path:
+        # 템플릿 모드: 지정된 템플릿을 상속해 스타일을 유지한 채 바인딩
+        if not Path(template_path).exists():
+            return {"status": "error", "error": f"템플릿 파일을 찾을 수 없습니다: {template_path}"}
+        workbook = load_workbook(template_path)
+        for sheet_cfg in sheets:
+            sheets_written.append(_bind_sheet(workbook, sheet_cfg, metadata_sheets))
+    else:
+        # 스크래치 모드: 템플릿 없이 새 워크북을 생성해 직접 기록
+        workbook = Workbook()
+        default_ws = workbook.active
+        for sheet_idx, sheet_cfg in enumerate(sheets):
+            title = str(sheet_cfg.get("name", f"Sheet{sheet_idx + 1}"))[:31]
+            if sheet_idx == 0:
+                worksheet = default_ws
+                worksheet.title = title
+            else:
+                worksheet = workbook.create_sheet(title=title)
+            sheets_written.append(_bind_sheet_scratch(worksheet, sheet_cfg))
+        if not sheets:
+            default_ws.title = "Sheet1"
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)

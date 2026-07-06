@@ -21,6 +21,9 @@
  */
 
 import { ipcMain, BrowserWindow } from "electron";
+import { app } from "electron";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   createStreamParser,
   createCodexStreamParser,
@@ -54,6 +57,7 @@ interface ActiveSession {
 
 let _activeSession: ActiveSession | null = null;
 let _geminiAbortController: AbortController | null = null;
+let _ollamaAbortController: AbortController | null = null;
 
 // ─── 브로드캐스트 헬퍼 ────────────────────────────────────────────────────────
 
@@ -139,6 +143,165 @@ function applyTodoUpdateFromToolCall(toolName: string, args: unknown): void {
   const todoState = extractTodoStateFromToolCall(toolName, args);
   if (todoState) {
     pushTodoState(todoState);
+  }
+}
+
+// ─── 템플릿 참조 주입 (Gemini 직접 경로 전용) ────────────────────────────────
+
+/** 로컬 templates 디렉토리를 탐색한다(패키징/개발 환경 모두 대응). */
+function resolveTemplatesDir(): string | null {
+  const candidates = [
+    path.join(app.getAppPath(), "..", "templates"),
+    path.join(app.getAppPath(), "templates"),
+    path.join(process.cwd(), "templates"),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * 프롬프트에 등장하는 `templates/....md` 참조를 감지해 실제 파일 내용을 프롬프트 앞에 주입한다.
+ *
+ * Gemini 직접 API 경로는 로컬 파일에 접근할 수 없으므로, 참조된 표준 산출물 템플릿(.md)의
+ * 구조(예: 공수산정 [18]~[21] 표 형식)를 모델이 알 수 있도록 여기서 내용을 함께 전달한다.
+ * exec(codex/omx) 경로는 파일 도구가 있으므로 이 주입을 적용하지 않는다.
+ */
+function injectTemplateReferences(prompt: string): string {
+  const templatesDir = resolveTemplatesDir();
+  if (!templatesDir) return prompt;
+
+  // `templates/<...>.md` 형태의 상대 경로 참조를 모두 수집(중복 제거)
+  const refRegex = /templates\/[^\s`"'()]+?\.md/gi;
+  const matches = [...new Set(prompt.match(refRegex) ?? [])];
+  if (matches.length === 0) return prompt;
+
+  const blocks: string[] = [];
+  for (const ref of matches) {
+    // "templates/" 접두어 이후의 상대 경로를 templatesDir 기준으로 해석
+    const relative = ref.replace(/^templates[\\/]/i, "");
+    const absolute = path.join(templatesDir, relative);
+    if (!existsSync(absolute)) continue;
+    try {
+      const content = readFileSync(absolute, "utf-8");
+      blocks.push(`### 참조 템플릿: ${ref}\n\n${content}`);
+    } catch (err) {
+      sessionLogger.logSystemMessage(`템플릿 참조 읽기 실패(${ref}): ${String(err)}`);
+    }
+  }
+
+  if (blocks.length === 0) return prompt;
+
+  return [
+    "다음은 참조해야 할 표준 산출물 템플릿의 실제 내용이다.",
+    "아래 템플릿의 섹션 구성·표 헤더·열 순서·ID 체계를 정확히 그대로 따라 산출물을 작성하라.",
+    "",
+    blocks.join("\n\n---\n\n"),
+    "",
+    "─".repeat(20),
+    "",
+    prompt,
+  ].join("\n");
+}
+
+// ─── 로컬 Ollama 모델 식별 ────────────────────────────────────────────────────
+
+/** 모델 선택기의 Ollama 그룹에 등록된 모델 ID 집합. */
+const OLLAMA_MODEL_IDS = new Set([
+  "custom-gemma4:31b",
+  "gemma4:31b",
+  "gemma4:26b",
+  "gemma4:latest",
+  "qwen3.5:latest",
+]);
+
+/** Ollama GPU 서버 베이스 URL(OpenAI 호환). 환경변수로 재정의 가능. */
+function resolveOllamaBaseUrl(): string {
+  return process.env["OMX_OLLAMA_BASE_URL"] ?? "http://aic.iteyes.io:11434";
+}
+
+function isOllamaModel(model?: string): boolean {
+  return typeof model === "string" && OLLAMA_MODEL_IDS.has(model);
+}
+
+// ─── 로컬 Ollama 직접 API 스트리밍 (OpenAI 호환 /v1/chat/completions) ──────────
+
+async function streamOllamaDirect(
+  model: string,
+  prompt: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const url = `${resolveOllamaBaseUrl().replace(/\/+$/, "")}/v1/chat/completions`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        stream: true,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      sessionLogger.logError(`Ollama API error ${response.status}: ${errText}`);
+      broadcastToRenderers(STREAM_ERROR_CHANNEL, {
+        message: `Ollama API 오류 ${response.status}: ${errText}`,
+      });
+      broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (!data || data === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(data) as {
+            choices?: Array<{ delta?: { content?: string } }>;
+          };
+          const text = parsed?.choices?.[0]?.delta?.content;
+          if (text) {
+            sessionLogger.logLlmResponseToken(text);
+            broadcastToRenderers(STREAM_TOKEN_CHANNEL, { text });
+          }
+        } catch {
+          // malformed SSE line — ignore
+        }
+      }
+    }
+
+    sessionLogger.flushLlmResponse();
+    broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 0 });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === "AbortError") return;
+    const msg = e instanceof Error ? e.message : String(e);
+    sessionLogger.logError(`Ollama stream error: ${msg}`);
+    broadcastToRenderers(STREAM_ERROR_CHANNEL, { message: `Ollama 연결 실패: ${msg}` });
+    broadcastToRenderers(STREAM_DONE_CHANNEL, { type: "done", exitCode: 1 });
+  } finally {
+    _ollamaAbortController = null;
   }
 }
 
@@ -268,6 +431,15 @@ export function startAgentStream(
     return;
   }
 
+  // ─── 로컬 Ollama 모델 직접 API 경로 (OpenAI 호환) ──────────────────────────
+  if (isOllamaModel(model)) {
+    const abort = new AbortController();
+    _ollamaAbortController = abort;
+    const ollamaPrompt = injectTemplateReferences(args[0] ?? "");
+    void streamOllamaDirect(model as string, ollamaPrompt, abort.signal);
+    return;
+  }
+
   // ─── Gemini 모델 직접 API 경로 ─────────────────────────────────────────────
   const isGemini = (typeof model === "string" && model.startsWith("gemini-")) || provider === "gemini";
   if (isGemini) {
@@ -279,7 +451,8 @@ export function startAgentStream(
     }
     const abort = new AbortController();
     _geminiAbortController = abort;
-    void streamGeminiDirect(model ?? "gemini-2.5-flash", apiKey, args[0] ?? "", abort.signal);
+    const geminiPrompt = injectTemplateReferences(args[0] ?? "");
+    void streamGeminiDirect(model ?? "gemini-2.5-flash", apiKey, geminiPrompt, abort.signal);
     return;
   }
 
@@ -449,6 +622,10 @@ export function stopAgentStream(): void {
   if (_geminiAbortController) {
     _geminiAbortController.abort();
     _geminiAbortController = null;
+  }
+  if (_ollamaAbortController) {
+    _ollamaAbortController.abort();
+    _ollamaAbortController = null;
   }
   if (!_activeSession) {
     broadcastToRenderers("omx:lifecycle-change", { status: "idle", mergedModes: [], updatedAt: new Date().toISOString() });

@@ -553,7 +553,7 @@ interface ChatContainerProps {
 export const ChatContainer: React.FC<ChatContainerProps> = ({
   initialMessages = [],
   onSendMessage,
-  selectedModel = "gemini-2.5-flash",
+  selectedModel = "custom-gemma4:31b",
   selectedPersona = "default",
   onModelChange,
   streamingText = "",

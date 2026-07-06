@@ -55,6 +55,8 @@ const electronAPI = {
     fileType: "xlsx" | "docx";
     rawContent: string;
     defaultFileName?: string;
+    templateName?: string;
+    autoSave?: boolean;
   }) =>
     ipcRenderer.invoke("omx:export-document", payload) as Promise<{
       ok: boolean;

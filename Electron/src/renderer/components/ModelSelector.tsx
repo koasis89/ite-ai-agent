@@ -14,7 +14,7 @@ export interface ModelDef {
   label: string;
   badge?: string;
   badgeAccent?: boolean;
-  group: "test" | "standard" | "gemini";
+  group: "test" | "standard" | "gemini" | "ollama";
 }
 
 export const MODEL_LIST: ModelDef[] = [
@@ -31,6 +31,12 @@ export const MODEL_LIST: ModelDef[] = [
   { id: "gemini-2.5-pro",   label: "Gemini 2.5 Pro",   badge: "Google", group: "gemini" },
   { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash",  badge: "Google", group: "gemini" },
   { id: "gemini-1.5-pro",   label: "Gemini 1.5 Pro",   badge: "Google", group: "gemini" },
+  // ── 로컬 Ollama (GPU 서버) ──
+  { id: "custom-gemma4:31b", label: "Gemma4 31B (커스텀)", badge: "Ollama", group: "ollama" },
+  { id: "gemma4:31b",        label: "Gemma4 31B",          badge: "Ollama", group: "ollama" },
+  { id: "gemma4:26b",        label: "Gemma4 26B",          badge: "Ollama", group: "ollama" },
+  { id: "gemma4:latest",     label: "Gemma4 8B",           badge: "Ollama", group: "ollama" },
+  { id: "qwen3.5:latest",    label: "Qwen3.5 9.7B",        badge: "Ollama", group: "ollama" },
 ];
 
 // ─── 컴포넌트 ────────────────────────────────────────────────────────────────
@@ -68,6 +74,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange, g
   const testModels = MODEL_LIST.filter((m) => m.group === "test");
   const standardModels = MODEL_LIST.filter((m) => m.group === "standard");
   const geminiModels = MODEL_LIST.filter((m) => m.group === "gemini");
+  const ollamaModels = MODEL_LIST.filter((m) => m.group === "ollama");
 
   return (
     <div ref={containerRef} className="model-selector-root">
@@ -133,6 +140,15 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange, g
               disabled={!geminiKeyAvailable}
               disabledTooltip="Gemini API 키 미설정 — 클릭하여 키 등록"
             />
+          ))}
+
+          {/* 구분선 */}
+          <div className="model-group-divider" />
+
+          {/* 로컬 Ollama 그룹 */}
+          <div className="model-group-label">로컬 Ollama</div>
+          {ollamaModels.map((m) => (
+            <ModelItem key={m.id} model={m} selected={m.id === value} onSelect={handleSelect} />
           ))}
         </div>
       )}
